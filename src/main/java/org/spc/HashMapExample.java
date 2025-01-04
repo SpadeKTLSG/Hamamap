@@ -12,4 +12,8 @@ public class HashMapExample {
 
         map.forEach((key, value) -> System.out.println(key + ": " + value));
     }
+
+    public void triggerMain() {
+        main(new String[0]);
+    }
 }
