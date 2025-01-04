@@ -16,28 +16,21 @@ public interface IHamamap_Fake<K, V> {
     /**
      * If it's empty
      * <p>
-     * 是否空
+     * 是否没有键值对
      *
      * @return {@code true} if this map contains nothing
      */
     boolean isEmpty();
 
     /**
-     * Returns {@code true} if this map contains a mapping for the specified
-     * key.  More formally, returns {@code true} if and only if
-     * this map contains a mapping for a key {@code k} such that
-     * {@code Objects.equals(key, k)}.  (There can be
-     * at most one such mapping.)
+     * If it got a KV for that key
+     * <p>
+     * 是否有这个键的键值对
      *
-     * @param key key whose presence in this map is to be tested
-     * @return {@code true} if this map contains a mapping for the specified
-     * key
-     * @throws ClassCastException   if the key is of an inappropriate type for
-     *                              this map
-     *                              (<a href="{@docRoot}/java.base/java/util/Collection.html#optional-restrictions">optional</a>)
-     * @throws NullPointerException if the specified key is null and this map
-     *                              does not permit null keys
-     *                              (<a href="{@docRoot}/java.base/java/util/Collection.html#optional-restrictions">optional</a>)
+     * @param key K represents KV wanted 代表需要的键值对的键
+     * @return {@code true} if it contains a KVmapping for key 是否包含有这个键的键值对
+     * @throws ClassCastException   if key's type inappropriate 如果key类型不合适
+     * @throws NullPointerException if key's null 如果key为空
      */
     boolean containsKey(Object key);
 
