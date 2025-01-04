@@ -9,5 +9,7 @@ package org.spc;
  */
 public class Hamamap<K, V> extends AbstractHamamap implements IHamamap {
 
-
+    public static void main(String[] args) {
+        System.out.println("Hello, I am Hamamap!");
+    }
 }

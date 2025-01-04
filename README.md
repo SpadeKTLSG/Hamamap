@@ -11,5 +11,5 @@ mvn clean package
 测试运行:
 
 ```shell
-java -jar target/Hamamap-1.0-SNAPSHOT.jar
+java -jar target/Hamamap-2.0.jar
 ```

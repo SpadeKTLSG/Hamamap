@@ -51,7 +51,7 @@
                     <archive>
                         <manifest>
                             <addClasspath>true</addClasspath>
-                            <mainClass>org.spc.HashMapExample</mainClass>
+                            <mainClass>org.spc.Hamamap</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
