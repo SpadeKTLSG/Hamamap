@@ -1,6 +1,6 @@
-package org.spc.origins;
+package org.spc;
 
-public interface IHamamap_Fake<K, V> {
+public interface IHamamap<K, V> {
 
     //! Query Operations 查询操作
 
