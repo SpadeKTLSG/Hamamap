@@ -10,9 +10,4 @@ package org.spc;
 public interface IHamamap<K, V> {
 
 
-    //* Constants 常量
-
-
-    //* 接口声明
-
 }

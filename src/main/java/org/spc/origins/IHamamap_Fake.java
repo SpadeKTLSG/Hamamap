@@ -1,12 +1,13 @@
 package org.spc.origins;
 
-import java.util.Collection;
-import java.util.Map;
-import java.util.Set;
+import java.io.Serializable;
+import java.util.*;
 
 public interface IHamamap_Fake<K, V> {
 
-    //? JavaDoc Simplify: KVmapping(KV) == Key-Value mapping 键值对映射
+    //? JavaDoc Simplify:
+    // KVmapping(KV) == Key-Value mapping 键值对映射
+    // hash code (value) = HC 哈希码(值)
 
     //! Query Operations 查询操作
 
@@ -142,121 +143,200 @@ public interface IHamamap_Fake<K, V> {
     // Set 隐含 KV 不重复特性
 
 
+    //! Comparison / hashing Operations 比较/哈希操作
+
     /**
-     * A map entry (key-value pair). The Entry may be unmodifiable, or the
-     * value may be modifiable if the optional {@code setValue} method is
-     * implemented. The Entry may be independent of any map, or it may represent
-     * an entry of the entry-set view of a map.
-     * <p>
-     * Instances of the {@code Map.Entry} interface may be obtained by iterating
-     * the entry-set view of a map. These instances maintain a connection to the
-     * original, backing map. This connection to the backing map is valid
-     * <i>only</i> for the duration of iteration over the entry-set view.
-     * During iteration of the entry-set view, if supported by the backing map,
-     * a change to a {@code Map.Entry}'s value via the
-     * {@link Map.Entry#setValue setValue} method will be visible in the backing map.
-     * The behavior of such a {@code Map.Entry} instance is undefined outside of
-     * iteration of the map's entry-set view. It is also undefined if the backing
-     * map has been modified after the {@code Map.Entry} was returned by the
-     * iterator, except through the {@code Map.Entry.setValue} method. In particular,
-     * a change to the value of a mapping in the backing map might or might not be
-     * visible in the corresponding {@code Map.Entry} element of the entry-set view.
+     * Compares the specified object with this map for equality.  Returns
+     * {@code true} if the given object is also a map and the two maps
+     * represent the same mappings.  More formally, two maps {@code m1} and
+     * {@code m2} represent the same mappings if
+     * {@code m1.entrySet().equals(m2.entrySet())}.  This ensures that the
+     * {@code equals} method works properly across different implementations
+     * of the {@code Map} interface.
      *
-     * @apiNote It is possible to create a {@code Map.Entry} instance that is disconnected
-     * from a backing map by using the {@link Map.Entry#copyOf copyOf} method. For example,
-     * the following creates a snapshot of a map's entries that is guaranteed not to
-     * change even if the original map is modified:
-     * <pre> {@code
-     * var entries = map.entrySet().stream().map(Map.Entry::copyOf).toList()
-     * }</pre>
-     * @see Map#entrySet()
-     * @since 1.2
+     * @param o object to be compared for equality with this map
+     * @return {@code true} if the specified object is equal to this map
+     */
+    boolean equals(Object o);
+
+    /**
+     * Returns the hash code value for this map.  The hash code of a map is
+     * defined to be the sum of the hash codes of each entry in the map's
+     * {@code entrySet()} view.  This ensures that {@code m1.equals(m2)}
+     * implies that {@code m1.hashCode()==m2.hashCode()} for any two maps
+     * {@code m1} and {@code m2}, as required by the general contract of
+     * {@link Object#hashCode}.
+     *
+     * @return the hash code value for this map
+     * @see Map.Entry#hashCode()
+     * @see Object#equals(Object)
+     * @see #equals(Object)
+     */
+    int hashCode();
+
+
+    /**
+     * A KVpair, can be a view of a map, or a snapshot of a map, or a modifiable KVpair.
+     * <p>
+     * 一个KV对, 可以是map的视图, 或map的快照, 或可修改的KV对
      */
     interface Entry<K, V> {
 
 
         /**
-         * Returns the key corresponding to this entry.
+         * Returns a comparator that compares {@link Map.Entry} in natural order on key.
          *
-         * @return the key corresponding to this entry
-         * @throws IllegalStateException implementations may, but are not
-         *                               required to, throw this exception if the entry has been
-         *                               removed from the backing map.
+         * <p>The returned comparator is serializable and throws {@link
+         * NullPointerException} when comparing an entry with a null key.
+         *
+         * @param <K> the {@link Comparable} type of then map keys
+         * @param <V> the type of the map values
+         * @return a comparator that compares {@link Map.Entry} in natural order on key.
+         * @see Comparable
+         * @since 1.8
+         */
+        static <K extends Comparable<? super K>, V> Comparator<Map.Entry<K, V>> comparingByKey() {
+            return (Comparator<Map.Entry<K, V>> & Serializable)
+                    (c1, c2) -> c1.getKey().compareTo(c2.getKey());
+        }
+
+        /**
+         * Returns a comparator that compares {@link Map.Entry} in natural order on value.
+         *
+         * <p>The returned comparator is serializable and throws {@link
+         * NullPointerException} when comparing an entry with null values.
+         *
+         * @param <K> the type of the map keys
+         * @param <V> the {@link Comparable} type of the map values
+         * @return a comparator that compares {@link Map.Entry} in natural order on value.
+         * @see Comparable
+         * @since 1.8
+         */
+        static <K, V extends Comparable<? super V>> Comparator<Map.Entry<K, V>> comparingByValue() {
+            return (Comparator<Map.Entry<K, V>> & Serializable)
+                    (c1, c2) -> c1.getValue().compareTo(c2.getValue());
+        }
+
+        /**
+         * Returns a comparator that compares {@link Map.Entry} by key using the given
+         * {@link Comparator}.
+         *
+         * <p>The returned comparator is serializable if the specified comparator
+         * is also serializable.
+         *
+         * @param <K> the type of the map keys
+         * @param <V> the type of the map values
+         * @param cmp the key {@link Comparator}
+         * @return a comparator that compares {@link Map.Entry} by the key.
+         * @since 1.8
+         */
+        static <K, V> Comparator<Map.Entry<K, V>> comparingByKey(Comparator<? super K> cmp) {
+            Objects.requireNonNull(cmp);
+            return (Comparator<Map.Entry<K, V>> & Serializable)
+                    (c1, c2) -> cmp.compare(c1.getKey(), c2.getKey());
+        }
+
+        /**
+         * Returns a comparator that compares {@link Map.Entry} by value using the given
+         * {@link Comparator}.
+         *
+         * <p>The returned comparator is serializable if the specified comparator
+         * is also serializable.
+         *
+         * @param <K> the type of the map keys
+         * @param <V> the type of the map values
+         * @param cmp the value {@link Comparator}
+         * @return a comparator that compares {@link Map.Entry} by the value.
+         * @since 1.8
+         */
+        static <K, V> Comparator<Map.Entry<K, V>> comparingByValue(Comparator<? super V> cmp) {
+            Objects.requireNonNull(cmp);
+            return (Comparator<Map.Entry<K, V>> & Serializable)
+                    (c1, c2) -> cmp.compare(c1.getValue(), c2.getValue());
+        }
+
+        /**
+         * Returns a copy of the given {@code Map.Entry}. The returned instance is not
+         * associated with any map. The returned instance has the same characteristics
+         * as instances returned by the {@link Map#entry Map::entry} method.
+         *
+         * @param <K> the type of the key
+         * @param <V> the type of the value
+         * @param e   the entry to be copied
+         * @return a map entry equal to the given entry
+         * @throws NullPointerException if e is null or if either of its key or value is null
+         * @apiNote An instance obtained from a map's entry-set view has a connection to that map.
+         * The {@code copyOf}  method may be used to create a {@code Map.Entry} instance,
+         * containing the same key and value, that is independent of any map.
+         * @implNote If the given entry was obtained from a call to {@code copyOf} or {@code Map::entry},
+         * calling {@code copyOf} will generally not create another copy.
+         * @since 17
+         */
+        @SuppressWarnings("unchecked")
+        static <K, V> Map.Entry<K, V> copyOf(Map.Entry<? extends K, ? extends V> e) {
+            Objects.requireNonNull(e);
+            if (e instanceof KeyValueHolder) {
+                return (Map.Entry<K, V>) e;
+            } else {
+                return Map.entry(e.getKey(), e.getValue());
+            }
+        }
+
+        /**
+         * Returns the K
+         * <p>
+         * 返回K
+         *
+         * @return the key
          */
         K getKey();
 
         /**
-         * Returns the value corresponding to this entry.  If the mapping
-         * has been removed from the backing map (by the iterator's
-         * {@code remove} operation), the results of this call are undefined.
+         * Returns the V
+         * <p>
+         * 返回V
          *
-         * @return the value corresponding to this entry
-         * @throws IllegalStateException implementations may, but are not
-         *                               required to, throw this exception if the entry has been
-         *                               removed from the backing map.
+         * @return the value
          */
         V getValue();
 
         /**
-         * Replaces the value corresponding to this entry with the specified
-         * value (optional operation).  (Writes through to the map.)  The
-         * behavior of this call is undefined if the mapping has already been
-         * removed from the map (by the iterator's {@code remove} operation).
+         * Set V to this entry, returns the old value; but if original KV has been removed, throws IllegalStateException
+         * <p>
+         * 设置V到这个entry, 返回原值; 但如果原KV已被移除, 则抛出IllegalStateException
          *
-         * @param value new value to be stored in this entry
-         * @return old value corresponding to the entry
-         * @throws UnsupportedOperationException if the {@code put} operation
-         *                                       is not supported by the backing map
-         * @throws ClassCastException            if the class of the specified value
-         *                                       prevents it from being stored in the backing map
-         * @throws NullPointerException          if the backing map does not permit
-         *                                       null values, and the specified value is null
-         * @throws IllegalArgumentException      if some property of this value
-         *                                       prevents it from being stored in the backing map
-         * @throws IllegalStateException         implementations may, but are not
-         *                                       required to, throw this exception if the entry has been
-         *                                       removed from the backing map.
+         * @return old value
+         * @throws ClassCastException    if value's type inappropriate
+         * @throws NullPointerException  if value is null
+         * @throws IllegalStateException original one has been removed
          */
         V setValue(V value);
 
         /**
-         * Compares the specified object with this entry for equality.
-         * Returns {@code true} if the given object is also a map entry and
-         * the two entries represent the same mapping.  More formally, two
-         * entries {@code e1} and {@code e2} represent the same mapping
-         * if<pre>
-         *     (e1.getKey()==null ?
-         *      e2.getKey()==null : e1.getKey().equals(e2.getKey()))  &amp;&amp;
-         *     (e1.getValue()==null ?
-         *      e2.getValue()==null : e1.getValue().equals(e2.getValue()))
-         * </pre>
-         * This ensures that the {@code equals} method works properly across
-         * different implementations of the {@code Map.Entry} interface.
+         * Compares object with this entry for equality
+         * <p>
+         * 与这个entry比较相等
          *
-         * @param o object to be compared for equality with this map entry
-         * @return {@code true} if the specified object is equal to this map
-         * entry
+         * @return true if object is also a KV entry and the two represent the same KV
          */
         boolean equals(Object o);
 
         /**
-         * Returns the hash code value for this map entry.  The hash code
-         * of a map entry {@code e} is defined to be: <pre>
+         * Returns the HC for this entry
+         *
+         * <p>
+         * 返回这个entry的哈希码
+         *
+         * <p>
+         * <pre>
          *     (e.getKey()==null   ? 0 : e.getKey().hashCode()) ^
          *     (e.getValue()==null ? 0 : e.getValue().hashCode())
          * </pre>
-         * This ensures that {@code e1.equals(e2)} implies that
-         * {@code e1.hashCode()==e2.hashCode()} for any two Entries
-         * {@code e1} and {@code e2}, as required by the general
-         * contract of {@code Object.hashCode}.
+         * <p>
          *
-         * @return the hash code value for this map entry
-         * @see Object#hashCode()
-         * @see Object#equals(Object)
-         * @see #equals(Object)
+         * @return the HC for this map entry
          */
         int hashCode();
-
     }
 
 
