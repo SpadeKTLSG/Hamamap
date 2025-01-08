@@ -1,15 +1,19 @@
 package org.spc.origins;
 
+import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 
 public interface IHamamap_Fake<K, V> {
+
+    //? JavaDoc Simplify: KVmapping(KV) == Key-Value mapping 键值对映射
 
     //! Query Operations 查询操作
 
     /**
      * Returns number of KVs. If it's more than Integer.MAX_VALUE, just returns that
      * <p>
-     * 返回键值对数, 若超整型上限 Integer.MAX_VALUE 返回上限
+     * 返回KV数, 若超整型上限 Integer.MAX_VALUE 返回上限
      *
      * @return KVs' amount
      */
@@ -18,7 +22,7 @@ public interface IHamamap_Fake<K, V> {
     /**
      * If it's empty
      * <p>
-     * 是否没有键值对
+     * 是否没有KV
      *
      * @return T if this contains nothing
      */
@@ -27,20 +31,20 @@ public interface IHamamap_Fake<K, V> {
     /**
      * If got a KV for that key
      * <p>
-     * 是否有这个键的键值对
+     * 是否有这个K的KV
      *
-     * @return T if contains a KVmapping for key
+     * @return T if contains a KV for key
      * @throws ClassCastException   if key's type inappropriate
      * @throws NullPointerException if key's null
      */
     boolean containsKey(Object key);
 
     /**
-     * Returns T if this map contains one or more KVmapping for value
+     * Returns T if this map contains one or more KV for value
      * <p>
-     * 如果这个map包含有一个或多个value的键值对, 返回 T
+     * 如果这个map包含有一个或多个value的KV, 返回 T
      *
-     * @return T if it contains one or more KVmapping for value
+     * @return T if it contains one or more KV for value
      * @throws ClassCastException   if value's type inappropriate
      * @throws NullPointerException if value's null
      */
@@ -61,94 +65,199 @@ public interface IHamamap_Fake<K, V> {
     //!  Modification Operations 修改操作
 
     /**
-     * Associates the specified value with the specified key in this map
-     * (optional operation).  If the map previously contained a mapping for
-     * the key, the old value is replaced by the specified value.  (A map
-     * {@code m} is said to contain a mapping for a key {@code k} if and only
-     * if {@link #containsKey(Object) m.containsKey(k)} would return
-     * {@code true}.)
+     * Add a new KV for key and value; if has one for that key, update it then return the dead value
+     * <p>
+     * 添加一个新的KV, 若已有这个K的KV, 则更新它并返回原值
      *
-     * @param key   key with which the specified value is to be associated
-     * @param value value to be associated with the specified key
-     * @return the previous value associated with {@code key}, or
-     * {@code null} if there was no mapping for {@code key}.
-     * (A {@code null} return can also indicate that the map
-     * previously associated {@code null} with {@code key},
-     * if the implementation supports {@code null} values.)
-     * @throws UnsupportedOperationException if the {@code put} operation
-     *                                       is not supported by this map
-     * @throws ClassCastException            if the class of the specified key or value
-     *                                       prevents it from being stored in this map
-     * @throws NullPointerException          if the specified key or value is null
-     *                                       and this map does not permit null keys or values
-     * @throws IllegalArgumentException      if some property of the specified key
-     *                                       or value prevents it from being stored in this map
+     * @return the dead value, or null if no mapping for key
+     * @throws ClassCastException   if key/value's type inappropriate
+     * @throws NullPointerException if key/value's null
      */
     V put(K key, V value);
 
+
     /**
-     * Removes the mapping for a key from this map if it is present
-     * (optional operation).   More formally, if this map contains a mapping
-     * from key {@code k} to value {@code v} such that
-     * {@code Objects.equals(key, k)}, that mapping
-     * is removed.  (The map can contain at most one such mapping.)
+     * Removes a present mapping for a key, then returns the dead value or null if no mapping for that
+     * <p>
+     * 移除一个K的KV, 返回原值, 没有就返回null
      *
-     * <p>Returns the value to which this map previously associated the key,
-     * or {@code null} if the map contained no mapping for the key.
-     *
-     * <p>If this map permits null values, then a return value of
-     * {@code null} does not <i>necessarily</i> indicate that the map
-     * contained no mapping for the key; it's also possible that the map
-     * explicitly mapped the key to {@code null}.
-     *
-     * <p>The map will not contain a mapping for the specified key once the
-     * call returns.
-     *
-     * @param key key whose mapping is to be removed from the map
-     * @return the previous value associated with {@code key}, or
-     * {@code null} if there was no mapping for {@code key}.
-     * @throws UnsupportedOperationException if the {@code remove} operation
-     *                                       is not supported by this map
-     * @throws ClassCastException            if the key is of an inappropriate type for
-     *                                       this map
-     *                                       (<a href="{@docRoot}/java.base/java/util/Collection.html#optional-restrictions">optional</a>)
-     * @throws NullPointerException          if the specified key is null and this
-     *                                       map does not permit null keys
-     *                                       (<a href="{@docRoot}/java.base/java/util/Collection.html#optional-restrictions">optional</a>)
+     * @return the dead value, or null if no mapping for key
+     * @throws ClassCastException   if key's type inappropriate
+     * @throws NullPointerException if key's null
      */
     V remove(Object key);
 
 
-    // Bulk Operations
+    //! Bulk Operations 批处理操作
+
 
     /**
-     * Copies all of the mappings from the specified map to this map
-     * (optional operation).  The effect of this call is equivalent to that
-     * of calling {@link #put(Object, Object) put(k, v)} on this map once
-     * for each mapping from key {@code k} to value {@code v} in the
-     * specified map.  The behavior of this operation is undefined if the
-     * specified map is modified while the operation is in progress.
+     * Add all mappings from m to this map
+     * <p>
+     * 将m的所有KV添加到这个map
      *
-     * @param m mappings to be stored in this map
-     * @throws UnsupportedOperationException if the {@code putAll} operation
-     *                                       is not supported by this map
-     * @throws ClassCastException            if the class of a key or value in the
-     *                                       specified map prevents it from being stored in this map
-     * @throws NullPointerException          if the specified map is null, or if
-     *                                       this map does not permit null keys or values, and the
-     *                                       specified map contains null keys or values
-     * @throws IllegalArgumentException      if some property of a key or value in
-     *                                       the specified map prevents it from being stored in this map
+     * @throws ClassCastException   if one key/value's type inappropriate
+     * @throws NullPointerException if m is null or one key/value's null
      */
     void putAll(Map<? extends K, ? extends V> m);
 
     /**
-     * Removes all of the mappings from this map (optional operation).
-     * The map will be empty after this call returns.
-     *
-     * @throws UnsupportedOperationException if the {@code clear} operation
-     *                                       is not supported by this map
+     * Removes all mappings
+     * <p>
+     * 移除所有KV
      */
     void clear();
+
+    //! Views Operations 视图操作
+
+    /**
+     * Returns a Set view of keys which means changes to map are reflected in the set, and vice-versa
+     * <p>
+     * 返回键的Set视图, 这意味着对map的更改会反映在set中, 反之亦然
+     *
+     * @return a set view of the keys contained in this map
+     */
+    Set<K> keySet();
+    // Set 隐含 key 不重复特性
+
+    /**
+     * Returns a Collection view of values, "view" see keySet() for more
+     * <p>
+     * 返回值的Collection视图, "视图" 详见 keySet()
+     *
+     * @return a collection view of the values contained in this map
+     */
+    Collection<V> values();
+    // Collection 隐含 value 可重复特性
+
+
+    /**
+     * Returns a Set view of the KVs, "view" see keySet() for more
+     * <p>
+     * 返回KV的Set视图, "视图" 详见 keySet()
+     *
+     * @return a set view of the KVs contained in this map
+     */
+    Set<IHamamap_Fake.Entry<K, V>> entrySet();
+    // Set 隐含 KV 不重复特性
+
+
+    /**
+     * A map entry (key-value pair). The Entry may be unmodifiable, or the
+     * value may be modifiable if the optional {@code setValue} method is
+     * implemented. The Entry may be independent of any map, or it may represent
+     * an entry of the entry-set view of a map.
+     * <p>
+     * Instances of the {@code Map.Entry} interface may be obtained by iterating
+     * the entry-set view of a map. These instances maintain a connection to the
+     * original, backing map. This connection to the backing map is valid
+     * <i>only</i> for the duration of iteration over the entry-set view.
+     * During iteration of the entry-set view, if supported by the backing map,
+     * a change to a {@code Map.Entry}'s value via the
+     * {@link Map.Entry#setValue setValue} method will be visible in the backing map.
+     * The behavior of such a {@code Map.Entry} instance is undefined outside of
+     * iteration of the map's entry-set view. It is also undefined if the backing
+     * map has been modified after the {@code Map.Entry} was returned by the
+     * iterator, except through the {@code Map.Entry.setValue} method. In particular,
+     * a change to the value of a mapping in the backing map might or might not be
+     * visible in the corresponding {@code Map.Entry} element of the entry-set view.
+     *
+     * @apiNote It is possible to create a {@code Map.Entry} instance that is disconnected
+     * from a backing map by using the {@link Map.Entry#copyOf copyOf} method. For example,
+     * the following creates a snapshot of a map's entries that is guaranteed not to
+     * change even if the original map is modified:
+     * <pre> {@code
+     * var entries = map.entrySet().stream().map(Map.Entry::copyOf).toList()
+     * }</pre>
+     * @see Map#entrySet()
+     * @since 1.2
+     */
+    interface Entry<K, V> {
+
+
+        /**
+         * Returns the key corresponding to this entry.
+         *
+         * @return the key corresponding to this entry
+         * @throws IllegalStateException implementations may, but are not
+         *                               required to, throw this exception if the entry has been
+         *                               removed from the backing map.
+         */
+        K getKey();
+
+        /**
+         * Returns the value corresponding to this entry.  If the mapping
+         * has been removed from the backing map (by the iterator's
+         * {@code remove} operation), the results of this call are undefined.
+         *
+         * @return the value corresponding to this entry
+         * @throws IllegalStateException implementations may, but are not
+         *                               required to, throw this exception if the entry has been
+         *                               removed from the backing map.
+         */
+        V getValue();
+
+        /**
+         * Replaces the value corresponding to this entry with the specified
+         * value (optional operation).  (Writes through to the map.)  The
+         * behavior of this call is undefined if the mapping has already been
+         * removed from the map (by the iterator's {@code remove} operation).
+         *
+         * @param value new value to be stored in this entry
+         * @return old value corresponding to the entry
+         * @throws UnsupportedOperationException if the {@code put} operation
+         *                                       is not supported by the backing map
+         * @throws ClassCastException            if the class of the specified value
+         *                                       prevents it from being stored in the backing map
+         * @throws NullPointerException          if the backing map does not permit
+         *                                       null values, and the specified value is null
+         * @throws IllegalArgumentException      if some property of this value
+         *                                       prevents it from being stored in the backing map
+         * @throws IllegalStateException         implementations may, but are not
+         *                                       required to, throw this exception if the entry has been
+         *                                       removed from the backing map.
+         */
+        V setValue(V value);
+
+        /**
+         * Compares the specified object with this entry for equality.
+         * Returns {@code true} if the given object is also a map entry and
+         * the two entries represent the same mapping.  More formally, two
+         * entries {@code e1} and {@code e2} represent the same mapping
+         * if<pre>
+         *     (e1.getKey()==null ?
+         *      e2.getKey()==null : e1.getKey().equals(e2.getKey()))  &amp;&amp;
+         *     (e1.getValue()==null ?
+         *      e2.getValue()==null : e1.getValue().equals(e2.getValue()))
+         * </pre>
+         * This ensures that the {@code equals} method works properly across
+         * different implementations of the {@code Map.Entry} interface.
+         *
+         * @param o object to be compared for equality with this map entry
+         * @return {@code true} if the specified object is equal to this map
+         * entry
+         */
+        boolean equals(Object o);
+
+        /**
+         * Returns the hash code value for this map entry.  The hash code
+         * of a map entry {@code e} is defined to be: <pre>
+         *     (e.getKey()==null   ? 0 : e.getKey().hashCode()) ^
+         *     (e.getValue()==null ? 0 : e.getValue().hashCode())
+         * </pre>
+         * This ensures that {@code e1.equals(e2)} implies that
+         * {@code e1.hashCode()==e2.hashCode()} for any two Entries
+         * {@code e1} and {@code e2}, as required by the general
+         * contract of {@code Object.hashCode}.
+         *
+         * @return the hash code value for this map entry
+         * @see Object#hashCode()
+         * @see Object#equals(Object)
+         * @see #equals(Object)
+         */
+        int hashCode();
+
+    }
+
 
 }
