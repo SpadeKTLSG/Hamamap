@@ -146,16 +146,11 @@ public interface IHamamap_Fake<K, V> {
     //! Comparison / hashing Operations 比较/哈希操作
 
     /**
-     * Compares the specified object with this map for equality.  Returns
-     * {@code true} if the given object is also a map and the two maps
-     * represent the same mappings.  More formally, two maps {@code m1} and
-     * {@code m2} represent the same mappings if
-     * {@code m1.entrySet().equals(m2.entrySet())}.  This ensures that the
-     * {@code equals} method works properly across different implementations
-     * of the {@code Map} interface.
+     * Compares two maps for equality.
+     * <p>
+     * 比较两个map是否相等
      *
-     * @param o object to be compared for equality with this map
-     * @return {@code true} if the specified object is equal to this map
+     * @return T if o is also a map and the two represent the same KVs
      */
     boolean equals(Object o);
 
