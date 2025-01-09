@@ -1,4 +1,6 @@
-package org.spc;
+package org.spc.impl;
+
+import org.spc.api.IHamamap;
 
 /**
  * Hamamap - hashmap refactored ,  from "Rhapsody of Corner Trash Cans"
@@ -9,7 +11,4 @@ package org.spc;
  */
 public class Hamamap<K, V> extends AbstractHamamap implements IHamamap {
 
-    public static void main(String[] args) {
-        System.out.println("Hello, I am Hamamap!");
-    }
 }
