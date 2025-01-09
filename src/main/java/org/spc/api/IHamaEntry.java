@@ -15,7 +15,7 @@ package org.spc.api;
  *
  * @author SpadeKTLSG 玄桃K
  */
-public interface IHamaEntry {
+public interface IHamaEntry<K, V> {
 
     /**
      * Returns the K

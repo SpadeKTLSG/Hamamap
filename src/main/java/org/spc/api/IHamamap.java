@@ -1,6 +1,5 @@
 package org.spc.api;
 
-import org.spc.origins.IHamamap_Fake;
 
 import java.util.Collection;
 import java.util.Map;
@@ -155,7 +154,7 @@ public interface IHamamap<K, V> {
      *
      * @return a set view of the KVs contained in this map
      */
-    Set<IHamamap_Fake.Entry<K, V>> entrySet();
+    Set<IHamaEntryEx<K, V>> entrySet();
     // Set 隐含 KV 不重复特性
 
 

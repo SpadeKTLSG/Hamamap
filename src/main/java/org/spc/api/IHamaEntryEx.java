@@ -6,9 +6,9 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * EntryUtils 工具
+ * IHamaEntry 自带方法扩展接口
  */
-public interface HamaEntryUtils {
+public interface IHamaEntryEx<K, V> extends IHamaEntry<K, V> {
 
 
     /**
