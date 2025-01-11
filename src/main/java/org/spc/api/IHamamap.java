@@ -15,11 +15,6 @@ import java.util.Set;
 public interface IHamamap<K, V> {
 
 
-    //? JavaDoc Simplify:
-    // KVmapping(KV) == Key-Value mapping 键值对映射
-    // hash code (value) = HC 哈希码(值)
-
-
     //! 1 Query Operations 查询操作
 
 

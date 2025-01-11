@@ -4,6 +4,11 @@
 
 hashmap refactored , from "Rhapsody of Corner Trash Cans"
 
+JavaDoc Simplify:
+
+- KVmapping(KV) == Key-Value mapping 键值对映射
+- hash code (value) = HC 哈希码(值)
+
 打包:
 
 ```shell

@@ -11,54 +11,38 @@ import java.util.Objects;
 public interface IHamaEntryEx<K, V> extends IHamaEntry<K, V> {
 
 
+    //! 1 Compare Operations 比较操作
+
     /**
-     * Returns a comparator that compares {@link Map.Entry} in natural order on key.
+     * Returns a comparator that compares entry in natural order on K
+     * <p>
+     * 返回一个比较器, 用于比较K的Entry
      *
-     * <p>The returned comparator is serializable and throws {@link
-     * NullPointerException} when comparing an entry with a null key.
-     *
-     * @param <K> the {@link Comparable} type of then map keys
-     * @param <V> the type of the map values
-     * @return a comparator that compares {@link Map.Entry} in natural order on key.
-     * @see Comparable
-     * @since 1.8
+     * @return entry K comparator
      */
-    static <K extends Comparable<? super K>, V> Comparator<Map.Entry<K, V>> comparingByKey() {
-        return (Comparator<Map.Entry<K, V>> & Serializable)
+    static <K extends Comparable<? super K>, V> Comparator<IHamaEntryEx<K, V>> comparingByKey() {
+        return (Comparator<IHamaEntryEx<K, V>> & Serializable)
                 (c1, c2) -> c1.getKey().compareTo(c2.getKey());
     }
 
 
     /**
-     * Returns a comparator that compares {@link Map.Entry} in natural order on value.
+     * Returns a comparator that compares entry in natural order on V
+     * <p>
+     * 返回一个比较器, 用于比较V的Entry
      *
-     * <p>The returned comparator is serializable and throws {@link
-     * NullPointerException} when comparing an entry with null values.
-     *
-     * @param <K> the type of the map keys
-     * @param <V> the {@link Comparable} type of the map values
-     * @return a comparator that compares {@link Map.Entry} in natural order on value.
-     * @see Comparable
-     * @since 1.8
+     * @return entry V comparator
      */
-    static <K, V extends Comparable<? super V>> Comparator<Map.Entry<K, V>> comparingByValue() {
-        return (Comparator<Map.Entry<K, V>> & Serializable)
+    static <K, V extends Comparable<? super V>> Comparator<IHamaEntryEx<K, V>> comparingByValue() {
+        return (Comparator<IHamaEntryEx<K, V>> & Serializable)
                 (c1, c2) -> c1.getValue().compareTo(c2.getValue());
     }
 
 
     /**
-     * Returns a comparator that compares {@link Map.Entry} by key using the given
-     * {@link Comparator}.
-     *
-     * <p>The returned comparator is serializable if the specified comparator
-     * is also serializable.
-     *
-     * @param <K> the type of the map keys
-     * @param <V> the type of the map values
-     * @param cmp the key {@link Comparator}
-     * @return a comparator that compares {@link Map.Entry} by the key.
-     * @since 1.8
+     * Returns a comparator that compares entry by given Comparator
+     * <p>
+     * 返回一个比较器, 用于比较Entry
      */
     static <K, V> Comparator<Map.Entry<K, V>> comparingByKey(Comparator<? super K> cmp) {
         Objects.requireNonNull(cmp);
