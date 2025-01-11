@@ -18,6 +18,6 @@ public interface collect {
 
 
     class EmptyMap<K, V> extends AbstractMap<K, V> implements Serializable {
-//todo
+        //todo
     }
 }
