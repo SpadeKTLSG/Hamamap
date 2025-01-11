@@ -1,6 +1,8 @@
 package org.spc.api;
 
 
+import org.spc.impl.KVHolder;
+
 import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
@@ -110,9 +112,8 @@ public interface IHamamapEx<K, V> extends IHamamap<K, V> {
      * @see Map#ofEntries Map.ofEntries()
      * @since 9
      */
-    static <K, V> Map.Entry<K, V> entry(K k, V v) {
-        // KeyValueHolder checks for nulls
-        return new KeyValueHolder<>(k, v);
+    static <K, V> IHamaEntryEx<K, V> entry(K k, V v) {
+        return new KVHolder<>(k, v);
     }
 
 
