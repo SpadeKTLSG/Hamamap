@@ -1,31 +1,25 @@
 package org.spc.api;
 
 
+import org.spc.impl.Hamamap;
 import org.spc.impl.KVHolder;
+import org.spc.tool.collect;
 
-import java.util.*;
-import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
-import java.util.function.Function;
+import java.util.Map;
+import java.util.Objects;
 
 /**
  * IHamamap 自带方法扩展接口
  */
 public interface IHamamapEx<K, V> extends IHamamap<K, V> {
 
-    // Defaultable methods
 
     /**
-     * Returns an unmodifiable map containing zero mappings.
-     * See <a href="#unmodifiable">Unmodifiable Maps</a> for details.
-     *
-     * @param <K> the {@code Map}'s key type
-     * @param <V> the {@code Map}'s value type
-     * @return an empty {@code Map}
-     * @since 9
+     * Returns an unmodifiable map containing no KV
      */
-    static <K, V> Map<K, V> of() {
-        return Collections.EMPTY_MAP;
+    @SuppressWarnings("unchecked")
+    static <K, V> IHamamapEx<K, V> of() {
+        return (IHamamapEx<K, V>) collect.EMPTY_MAP;
     }
 
 
@@ -58,24 +52,20 @@ public interface IHamamapEx<K, V> extends IHamamap<K, V> {
      * @since 9
      */
     @SafeVarargs
-    static <K, V> Map<K, V> ofEntries(Map.Entry<? extends K, ? extends V>... entries) {
-        if (entries.length == 0) { // implicit null check of entries array
-            @SuppressWarnings("unchecked")
-            var map = (Map<K, V>) ImmutableCollections.EMPTY_MAP;
-            return map;
-        } else if (entries.length == 1) {
-            // implicit null check of the array slot
-            return new ImmutableCollections.Map1<>(entries[0].getKey(),
-                    entries[0].getValue());
+    @SuppressWarnings("unchecked")
+    static <K, V> IHamamapEx<K, V> ofEntries(IHamaEntryEx<? extends K, ? extends V>... entries) {
+
+        if (entries.length == 0) {
+            return (IHamamapEx<K, V>) collect.EMPTY_MAP;
         } else {
             Object[] kva = new Object[entries.length << 1];
             int a = 0;
-            for (Map.Entry<? extends K, ? extends V> entry : entries) {
-                // implicit null checks of each array slot
+            for (IHamaEntryEx<? extends K, ? extends V> entry : entries) {
                 kva[a++] = entry.getKey();
                 kva[a++] = entry.getValue();
             }
-            return new ImmutableCollections.MapN<>(kva);
+            //todo : 超级赋值
+            return new Hamamap<>(kva);
         }
     }
 
@@ -100,17 +90,6 @@ public interface IHamamapEx<K, V> extends IHamamap<K, V> {
      * about the identity of the returned instances. This method is free to
      * create new instances or reuse existing ones.
      * </ul>
-     *
-     * @param <K> the key's type
-     * @param <V> the value's type
-     * @param k   the key
-     * @param v   the value
-     * @return an {@code Entry} containing the specified key and value
-     * @throws NullPointerException if the key or value is {@code null}
-     * @apiNote For a serializable {@code Entry}, see {@link AbstractMap.SimpleEntry} or
-     * {@link AbstractMap.SimpleImmutableEntry}.
-     * @see Map#ofEntries Map.ofEntries()
-     * @since 9
      */
     static <K, V> IHamaEntryEx<K, V> entry(K k, V v) {
         return new KVHolder<>(k, v);
@@ -133,12 +112,8 @@ public interface IHamamapEx<K, V> extends IHamamap<K, V> {
      * @since 10
      */
     @SuppressWarnings({"rawtypes", "unchecked"})
-    static <K, V> Map<K, V> copyOf(Map<? extends K, ? extends V> map) {
-        if (map instanceof ImmutableCollections.AbstractImmutableMap) {
-            return (Map<K, V>) map;
-        } else {
-            return Map.ofEntries(map.entrySet().toArray(new Map.Entry[0]));
-        }
+    static <K, V> IHamamapEx<K, V> copyOf(IHamamapEx<? extends K, ? extends V> map) {
+        return IHamamapEx.ofEntries(map.entrySet().toArray(new IHamaEntryEx[0]));
     }
 
 
@@ -164,112 +139,7 @@ public interface IHamamapEx<K, V> extends IHamamap<K, V> {
      */
     default V getOrDefault(Object key, V defaultValue) {
         V v;
-        return (((v = get(key)) != null) || containsKey(key))
-                ? v
-                : defaultValue;
-    }
-
-
-    /**
-     * Performs the given action for each entry in this map until all entries
-     * have been processed or the action throws an exception.   Unless
-     * otherwise specified by the implementing class, actions are performed in
-     * the order of entry set iteration (if an iteration order is specified.)
-     * Exceptions thrown by the action are relayed to the caller.
-     *
-     * @param action The action to be performed for each entry
-     * @throws NullPointerException            if the specified action is null
-     * @throws ConcurrentModificationException if an entry is found to be
-     *                                         removed during iteration
-     * @implSpec The default implementation is equivalent to, for this {@code map}:
-     * <pre> {@code
-     * for (Map.Entry<K, V> entry : map.entrySet())
-     *     action.accept(entry.getKey(), entry.getValue());
-     * }</pre>
-     * <p>
-     * The default implementation makes no guarantees about synchronization
-     * or atomicity properties of this method. Any implementation providing
-     * atomicity guarantees must override this method and document its
-     * concurrency properties.
-     * @since 1.8
-     */
-    default void forEach(BiConsumer<? super K, ? super V> action) {
-        Objects.requireNonNull(action);
-        for (IHamaEntryEx<K, V> entry : entrySet()) {
-            K k;
-            V v;
-            try {
-                k = entry.getKey();
-                v = entry.getValue();
-            } catch (IllegalStateException ise) {
-                // this usually means the entry is no longer in the map.
-                throw new ConcurrentModificationException(ise);
-            }
-            action.accept(k, v);
-        }
-    }
-
-
-    /**
-     * Replaces each entry's value with the result of invoking the given
-     * function on that entry until all entries have been processed or the
-     * function throws an exception.  Exceptions thrown by the function are
-     * relayed to the caller.
-     *
-     * @param function the function to apply to each entry
-     * @throws UnsupportedOperationException   if the {@code set} operation
-     *                                         is not supported by this map's entry set iterator.
-     * @throws ClassCastException              if the class of a replacement value
-     *                                         prevents it from being stored in this map
-     * @throws NullPointerException            if the specified function is null, or the
-     *                                         specified replacement value is null, and this map does not permit null
-     *                                         values
-     * @throws ClassCastException              if a replacement value is of an inappropriate
-     *                                         type for this map
-     *                                         (<a href="{@docRoot}/java.base/java/util/Collection.html#optional-restrictions">optional</a>)
-     * @throws NullPointerException            if function or a replacement value is null,
-     *                                         and this map does not permit null keys or values
-     *                                         (<a href="{@docRoot}/java.base/java/util/Collection.html#optional-restrictions">optional</a>)
-     * @throws IllegalArgumentException        if some property of a replacement value
-     *                                         prevents it from being stored in this map
-     *                                         (<a href="{@docRoot}/java.base/java/util/Collection.html#optional-restrictions">optional</a>)
-     * @throws ConcurrentModificationException if an entry is found to be
-     *                                         removed during iteration
-     * @implSpec <p>The default implementation is equivalent to, for this {@code map}:
-     * <pre> {@code
-     * for (Map.Entry<K, V> entry : map.entrySet())
-     *     entry.setValue(function.apply(entry.getKey(), entry.getValue()));
-     * }</pre>
-     *
-     * <p>The default implementation makes no guarantees about synchronization
-     * or atomicity properties of this method. Any implementation providing
-     * atomicity guarantees must override this method and document its
-     * concurrency properties.
-     * @since 1.8
-     */
-    default void replaceAll(BiFunction<? super K, ? super V, ? extends V> function) {
-        Objects.requireNonNull(function);
-        for (IHamaEntryEx<K, V> entry : entrySet()) {
-            K k;
-            V v;
-            try {
-                k = entry.getKey();
-                v = entry.getValue();
-            } catch (IllegalStateException ise) {
-                // this usually means the entry is no longer in the map.
-                throw new ConcurrentModificationException(ise);
-            }
-
-            // ise thrown from function is not a cme.
-            v = function.apply(k, v);
-
-            try {
-                entry.setValue(v);
-            } catch (IllegalStateException ise) {
-                // this usually means the entry is no longer in the map.
-                throw new ConcurrentModificationException(ise);
-            }
-        }
+        return (((v = get(key)) != null) || containsKey(key)) ? v : defaultValue;
     }
 
 
@@ -357,8 +227,7 @@ public interface IHamamapEx<K, V> extends IHamamap<K, V> {
      */
     default boolean remove(Object key, Object value) {
         Object curValue = get(key);
-        if (!Objects.equals(curValue, value) ||
-                (curValue == null && !containsKey(key))) {
+        if (!Objects.equals(curValue, value) || (curValue == null && !containsKey(key))) {
             return false;
         }
         remove(key);
@@ -408,8 +277,7 @@ public interface IHamamapEx<K, V> extends IHamamap<K, V> {
      */
     default boolean replace(K key, V oldValue, V newValue) {
         Object curValue = get(key);
-        if (!Objects.equals(curValue, oldValue) ||
-                (curValue == null && !containsKey(key))) {
+        if (!Objects.equals(curValue, oldValue) || (curValue == null && !containsKey(key))) {
             return false;
         }
         put(key, newValue);
@@ -461,346 +329,5 @@ public interface IHamamapEx<K, V> extends IHamamap<K, V> {
         return curValue;
     }
 
-    /**
-     * If the specified key is not already associated with a value (or is mapped
-     * to {@code null}), attempts to compute its value using the given mapping
-     * function and enters it into this map unless {@code null}.
-     *
-     * <p>If the mapping function returns {@code null}, no mapping is recorded.
-     * If the mapping function itself throws an (unchecked) exception, the
-     * exception is rethrown, and no mapping is recorded.  The most
-     * common usage is to construct a new object serving as an initial
-     * mapped value or memoized result, as in:
-     *
-     * <pre> {@code
-     * map.computeIfAbsent(key, k -> new Value(f(k)));
-     * }</pre>
-     *
-     * <p>Or to implement a multi-value map, {@code Map<K,Collection<V>>},
-     * supporting multiple values per key:
-     *
-     * <pre> {@code
-     * map.computeIfAbsent(key, k -> new HashSet<V>()).add(v);
-     * }</pre>
-     *
-     * <p>The mapping function should not modify this map during computation.
-     *
-     * @param key             key with which the specified value is to be associated
-     * @param mappingFunction the mapping function to compute a value
-     * @return the current (existing or computed) value associated with
-     * the specified key, or null if the computed value is null
-     * @throws NullPointerException          if the specified key is null and
-     *                                       this map does not support null keys, or the mappingFunction
-     *                                       is null
-     * @throws UnsupportedOperationException if the {@code put} operation
-     *                                       is not supported by this map
-     *                                       (<a href="{@docRoot}/java.base/java/util/Collection.html#optional-restrictions">optional</a>)
-     * @throws ClassCastException            if the class of the specified key or value
-     *                                       prevents it from being stored in this map
-     *                                       (<a href="{@docRoot}/java.base/java/util/Collection.html#optional-restrictions">optional</a>)
-     * @throws IllegalArgumentException      if some property of the specified key
-     *                                       or value prevents it from being stored in this map
-     *                                       (<a href="{@docRoot}/java.base/java/util/Collection.html#optional-restrictions">optional</a>)
-     * @implSpec The default implementation is equivalent to the following steps for this
-     * {@code map}, then returning the current value or {@code null} if now
-     * absent:
-     *
-     * <pre> {@code
-     * if (map.get(key) == null) {
-     *     V newValue = mappingFunction.apply(key);
-     *     if (newValue != null)
-     *         map.put(key, newValue);
-     * }
-     * }</pre>
-     *
-     * <p>The default implementation makes no guarantees about detecting if the
-     * mapping function modifies this map during computation and, if
-     * appropriate, reporting an error. Non-concurrent implementations should
-     * override this method and, on a best-effort basis, throw a
-     * {@code ConcurrentModificationException} if it is detected that the
-     * mapping function modifies this map during computation. Concurrent
-     * implementations should override this method and, on a best-effort basis,
-     * throw an {@code IllegalStateException} if it is detected that the
-     * mapping function modifies this map during computation and as a result
-     * computation would never complete.
-     *
-     * <p>The default implementation makes no guarantees about synchronization
-     * or atomicity properties of this method. Any implementation providing
-     * atomicity guarantees must override this method and document its
-     * concurrency properties. In particular, all implementations of
-     * subinterface {@link java.util.concurrent.ConcurrentMap} must document
-     * whether the mapping function is applied once atomically only if the value
-     * is not present.
-     * @since 1.8
-     */
-    default V computeIfAbsent(K key,
-                              Function<? super K, ? extends V> mappingFunction) {
-        Objects.requireNonNull(mappingFunction);
-        V v;
-        if ((v = get(key)) == null) {
-            V newValue;
-            if ((newValue = mappingFunction.apply(key)) != null) {
-                put(key, newValue);
-                return newValue;
-            }
-        }
-
-        return v;
-    }
-
-    /**
-     * If the value for the specified key is present and non-null, attempts to
-     * compute a new mapping given the key and its current mapped value.
-     *
-     * <p>If the remapping function returns {@code null}, the mapping is removed.
-     * If the remapping function itself throws an (unchecked) exception, the
-     * exception is rethrown, and the current mapping is left unchanged.
-     *
-     * <p>The remapping function should not modify this map during computation.
-     *
-     * @param key               key with which the specified value is to be associated
-     * @param remappingFunction the remapping function to compute a value
-     * @return the new value associated with the specified key, or null if none
-     * @throws NullPointerException          if the specified key is null and
-     *                                       this map does not support null keys, or the
-     *                                       remappingFunction is null
-     * @throws UnsupportedOperationException if the {@code put} operation
-     *                                       is not supported by this map
-     *                                       (<a href="{@docRoot}/java.base/java/util/Collection.html#optional-restrictions">optional</a>)
-     * @throws ClassCastException            if the class of the specified key or value
-     *                                       prevents it from being stored in this map
-     *                                       (<a href="{@docRoot}/java.base/java/util/Collection.html#optional-restrictions">optional</a>)
-     * @throws IllegalArgumentException      if some property of the specified key
-     *                                       or value prevents it from being stored in this map
-     *                                       (<a href="{@docRoot}/java.base/java/util/Collection.html#optional-restrictions">optional</a>)
-     * @implSpec The default implementation is equivalent to performing the following
-     * steps for this {@code map}, then returning the current value or
-     * {@code null} if now absent:
-     *
-     * <pre> {@code
-     * if (map.get(key) != null) {
-     *     V oldValue = map.get(key);
-     *     V newValue = remappingFunction.apply(key, oldValue);
-     *     if (newValue != null)
-     *         map.put(key, newValue);
-     *     else
-     *         map.remove(key);
-     * }
-     * }</pre>
-     *
-     * <p>The default implementation makes no guarantees about detecting if the
-     * remapping function modifies this map during computation and, if
-     * appropriate, reporting an error. Non-concurrent implementations should
-     * override this method and, on a best-effort basis, throw a
-     * {@code ConcurrentModificationException} if it is detected that the
-     * remapping function modifies this map during computation. Concurrent
-     * implementations should override this method and, on a best-effort basis,
-     * throw an {@code IllegalStateException} if it is detected that the
-     * remapping function modifies this map during computation and as a result
-     * computation would never complete.
-     *
-     * <p>The default implementation makes no guarantees about synchronization
-     * or atomicity properties of this method. Any implementation providing
-     * atomicity guarantees must override this method and document its
-     * concurrency properties. In particular, all implementations of
-     * subinterface {@link java.util.concurrent.ConcurrentMap} must document
-     * whether the remapping function is applied once atomically only if the
-     * value is not present.
-     * @since 1.8
-     */
-    default V computeIfPresent(K key,
-                               BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
-        Objects.requireNonNull(remappingFunction);
-        V oldValue;
-        if ((oldValue = get(key)) != null) {
-            V newValue = remappingFunction.apply(key, oldValue);
-            if (newValue != null) {
-                put(key, newValue);
-                return newValue;
-            } else {
-                remove(key);
-                return null;
-            }
-        } else {
-            return null;
-        }
-    }
-
-    /**
-     * Attempts to compute a mapping for the specified key and its current
-     * mapped value (or {@code null} if there is no current mapping). For
-     * example, to either create or append a {@code String} msg to a value
-     * mapping:
-     *
-     * <pre> {@code
-     * map.compute(key, (k, v) -> (v == null) ? msg : v.concat(msg))}</pre>
-     * (Method {@link #merge merge()} is often simpler to use for such purposes.)
-     *
-     * <p>If the remapping function returns {@code null}, the mapping is removed
-     * (or remains absent if initially absent).  If the remapping function
-     * itself throws an (unchecked) exception, the exception is rethrown, and
-     * the current mapping is left unchanged.
-     *
-     * <p>The remapping function should not modify this map during computation.
-     *
-     * @param key               key with which the specified value is to be associated
-     * @param remappingFunction the remapping function to compute a value
-     * @return the new value associated with the specified key, or null if none
-     * @throws NullPointerException          if the specified key is null and
-     *                                       this map does not support null keys, or the
-     *                                       remappingFunction is null
-     * @throws UnsupportedOperationException if the {@code put} operation
-     *                                       is not supported by this map
-     *                                       (<a href="{@docRoot}/java.base/java/util/Collection.html#optional-restrictions">optional</a>)
-     * @throws ClassCastException            if the class of the specified key or value
-     *                                       prevents it from being stored in this map
-     *                                       (<a href="{@docRoot}/java.base/java/util/Collection.html#optional-restrictions">optional</a>)
-     * @throws IllegalArgumentException      if some property of the specified key
-     *                                       or value prevents it from being stored in this map
-     *                                       (<a href="{@docRoot}/java.base/java/util/Collection.html#optional-restrictions">optional</a>)
-     * @implSpec The default implementation is equivalent to performing the following
-     * steps for this {@code map}:
-     *
-     * <pre> {@code
-     * V oldValue = map.get(key);
-     * V newValue = remappingFunction.apply(key, oldValue);
-     * if (newValue != null) {
-     *     map.put(key, newValue);
-     * } else if (oldValue != null || map.containsKey(key)) {
-     *     map.remove(key);
-     * }
-     * return newValue;
-     * }</pre>
-     *
-     * <p>The default implementation makes no guarantees about detecting if the
-     * remapping function modifies this map during computation and, if
-     * appropriate, reporting an error. Non-concurrent implementations should
-     * override this method and, on a best-effort basis, throw a
-     * {@code ConcurrentModificationException} if it is detected that the
-     * remapping function modifies this map during computation. Concurrent
-     * implementations should override this method and, on a best-effort basis,
-     * throw an {@code IllegalStateException} if it is detected that the
-     * remapping function modifies this map during computation and as a result
-     * computation would never complete.
-     *
-     * <p>The default implementation makes no guarantees about synchronization
-     * or atomicity properties of this method. Any implementation providing
-     * atomicity guarantees must override this method and document its
-     * concurrency properties. In particular, all implementations of
-     * subinterface {@link java.util.concurrent.ConcurrentMap} must document
-     * whether the remapping function is applied once atomically only if the
-     * value is not present.
-     * @since 1.8
-     */
-    default V compute(K key,
-                      BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
-        Objects.requireNonNull(remappingFunction);
-        V oldValue = get(key);
-
-        V newValue = remappingFunction.apply(key, oldValue);
-        if (newValue == null) {
-            // delete mapping
-            if (oldValue != null || containsKey(key)) {
-                // something to remove
-                remove(key);
-                return null;
-            } else {
-                // nothing to do. Leave things as they were.
-                return null;
-            }
-        } else {
-            // add or replace old mapping
-            put(key, newValue);
-            return newValue;
-        }
-    }
-
-    /**
-     * If the specified key is not already associated with a value or is
-     * associated with null, associates it with the given non-null value.
-     * Otherwise, replaces the associated value with the results of the given
-     * remapping function, or removes if the result is {@code null}. This
-     * method may be of use when combining multiple mapped values for a key.
-     * For example, to either create or append a {@code String msg} to a
-     * value mapping:
-     *
-     * <pre> {@code
-     * map.merge(key, msg, String::concat)
-     * }</pre>
-     *
-     * <p>If the remapping function returns {@code null}, the mapping is removed.
-     * If the remapping function itself throws an (unchecked) exception, the
-     * exception is rethrown, and the current mapping is left unchanged.
-     *
-     * <p>The remapping function should not modify this map during computation.
-     *
-     * @param key               key with which the resulting value is to be associated
-     * @param value             the non-null value to be merged with the existing value
-     *                          associated with the key or, if no existing value or a null value
-     *                          is associated with the key, to be associated with the key
-     * @param remappingFunction the remapping function to recompute a value if
-     *                          present
-     * @return the new value associated with the specified key, or null if no
-     * value is associated with the key
-     * @throws UnsupportedOperationException if the {@code put} operation
-     *                                       is not supported by this map
-     *                                       (<a href="{@docRoot}/java.base/java/util/Collection.html#optional-restrictions">optional</a>)
-     * @throws ClassCastException            if the class of the specified key or value
-     *                                       prevents it from being stored in this map
-     *                                       (<a href="{@docRoot}/java.base/java/util/Collection.html#optional-restrictions">optional</a>)
-     * @throws IllegalArgumentException      if some property of the specified key
-     *                                       or value prevents it from being stored in this map
-     *                                       (<a href="{@docRoot}/java.base/java/util/Collection.html#optional-restrictions">optional</a>)
-     * @throws NullPointerException          if the specified key is null and this map
-     *                                       does not support null keys or the value or remappingFunction is
-     *                                       null
-     * @implSpec The default implementation is equivalent to performing the following
-     * steps for this {@code map}, then returning the current value or
-     * {@code null} if absent:
-     *
-     * <pre> {@code
-     * V oldValue = map.get(key);
-     * V newValue = (oldValue == null) ? value :
-     *              remappingFunction.apply(oldValue, value);
-     * if (newValue == null)
-     *     map.remove(key);
-     * else
-     *     map.put(key, newValue);
-     * }</pre>
-     *
-     * <p>The default implementation makes no guarantees about detecting if the
-     * remapping function modifies this map during computation and, if
-     * appropriate, reporting an error. Non-concurrent implementations should
-     * override this method and, on a best-effort basis, throw a
-     * {@code ConcurrentModificationException} if it is detected that the
-     * remapping function modifies this map during computation. Concurrent
-     * implementations should override this method and, on a best-effort basis,
-     * throw an {@code IllegalStateException} if it is detected that the
-     * remapping function modifies this map during computation and as a result
-     * computation would never complete.
-     *
-     * <p>The default implementation makes no guarantees about synchronization
-     * or atomicity properties of this method. Any implementation providing
-     * atomicity guarantees must override this method and document its
-     * concurrency properties. In particular, all implementations of
-     * subinterface {@link java.util.concurrent.ConcurrentMap} must document
-     * whether the remapping function is applied once atomically only if the
-     * value is not present.
-     * @since 1.8
-     */
-    default V merge(K key, V value,
-                    BiFunction<? super V, ? super V, ? extends V> remappingFunction) {
-        Objects.requireNonNull(remappingFunction);
-        Objects.requireNonNull(value);
-        V oldValue = get(key);
-        V newValue = (oldValue == null) ? value :
-                remappingFunction.apply(oldValue, value);
-        if (newValue == null) {
-            remove(key);
-        } else {
-            put(key, newValue);
-        }
-        return newValue;
-    }
 
 }

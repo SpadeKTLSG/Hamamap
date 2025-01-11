@@ -3,21 +3,18 @@ package org.spc.tool;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Unmodifiable;
+import org.spc.api.IHamamapEx;
+import org.spc.impl.EmptyHamaMap;
 
-import java.io.Serializable;
-import java.util.AbstractMap;
-import java.util.Map;
-
-public interface collect {
+public interface collect<K, V> {
 
 
     /**
-     * The empty map (immutable).  This map is serializable.
+     * Empty Hamamap (immutable - Fake)
      */
-    @NotNull @Unmodifiable Map EMPTY_MAP = new EmptyMap<>();
+    @NotNull
+    @Unmodifiable
+    IHamamapEx EMPTY_MAP = new EmptyHamaMap();
 
 
-    class EmptyMap<K, V> extends AbstractMap<K, V> implements Serializable {
-        //todo
-    }
 }
