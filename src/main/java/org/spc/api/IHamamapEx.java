@@ -44,13 +44,9 @@ public interface IHamamapEx<K, V> extends IHamamap<K, V> {
 
 
     /**
-     * If the specified key is not already associated with a value (or is mapped
-     * to {@code null}) associates it with the given value and returns
-     * {@code null}, else returns the current value.
+     * If the K not linked to V, link it with V and return null, else returns the current V
      *
-     * @param key   key with which the specified value is to be associated
-     * @param value value to be associated with the specified key
-     * @return the previous value associated with the specified key, or
+     * @return the previous V linked to K, or
      * {@code null} if there was no mapping for the key.
      * (A {@code null} return can also indicate that the map
      * previously associated {@code null} with the key,
