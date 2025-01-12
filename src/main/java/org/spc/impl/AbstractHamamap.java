@@ -9,10 +9,9 @@ import org.spc.api.IHamamapEx;
  *
  * @author SpadeKTLSG 玄桃K
  */
-public abstract class AbstractHamamap<K, V> implements IHamamapEx {
+public abstract class AbstractHamamap<K, V> implements IHamamapEx<K, V> {
 
     //* IHamamapEx接口抽象实现: 原生HashMap内容不做修改, 直接位于此处
 
-    //todo
 
 }
