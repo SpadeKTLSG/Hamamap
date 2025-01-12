@@ -2,7 +2,6 @@ package org.spc.api;
 
 
 import java.util.Collection;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -108,7 +107,7 @@ public interface IHamamap<K, V> {
      * @throws ClassCastException   if one key/value's type inappropriate
      * @throws NullPointerException if m is null or one key/value's null
      */
-    void putAll(Map<? extends K, ? extends V> m);
+    void putAll(IHamamapEx<? extends K, ? extends V> m);
 
     /**
      * Removes all mappings
