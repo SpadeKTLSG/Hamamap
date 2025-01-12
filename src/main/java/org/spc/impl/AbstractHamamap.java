@@ -17,16 +17,14 @@ public abstract class AbstractHamamap<K, V> implements IHamamapEx<K, V> {
 
     //Fields 域
 
+
     //Transient Views 瞬时视图
     transient Set<K> keySet;
+
+    //Entry
     transient Collection<V> values;
-
-
     protected AbstractHamamap() {
     }
-
-    @Override
-    public abstract Set<IHamaEntryEx<K, V>> entrySet();
 
 
     //? Hamamap...需要实现的方法: 位于此处
@@ -61,6 +59,8 @@ public abstract class AbstractHamamap<K, V> implements IHamamapEx<K, V> {
         throw new UnsupportedOperationException();
     }
 
+    @Override
+    public abstract Set<IHamaEntryEx<K, V>> entrySet();
 
     //! IHamamap接口抽象实现: 位于此处
 

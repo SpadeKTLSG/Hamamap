@@ -2,7 +2,7 @@ package org.spc.api;
 
 
 import org.spc.impl.KVHolder;
-import org.spc.tool.collect;
+import org.spc.tool.Collect;
 
 import java.util.Objects;
 
@@ -28,7 +28,7 @@ public interface IHamamapEx<K, V> extends IHamamap<K, V> {
      */
     @SuppressWarnings("unchecked")
     static <K, V> IHamamapEx<K, V> of() {
-        return (IHamamapEx<K, V>) collect.EMPTY_MAP;
+        return (IHamamapEx<K, V>) Collect.EMPTY_MAP;
     }
 
 
