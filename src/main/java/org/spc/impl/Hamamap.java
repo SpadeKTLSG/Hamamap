@@ -5,7 +5,6 @@ import org.spc.api.IHamamap;
 import org.spc.tool.Constants;
 import org.spc.tool.Toolkit;
 
-import java.io.IOException;
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.HashMap;
@@ -502,73 +501,5 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     }
 
 
-    //TreeNode todo
-
-    //! LHM
-
-    /*
-     * The following package-protected methods are designed to be
-     * overridden by LinkedHashMap, but not by any other subclass.
-     * Nearly all other internal methods are also package-protected
-     * but are declared final, so can be used by LinkedHashMap, view
-     * classes, and HashSet.
-     */
-
-    // Create a regular (non-tree) node
-    HashMap.Node<K, V> newNode(int hash, K key, V value, HashMap.Node<K, V> next) {
-        return new HashMap.Node<>(hash, key, value, next);
-    }
-
-    // For conversion from TreeNodes to plain nodes
-    HashMap.Node<K, V> replacementNode(HashMap.Node<K, V> p, HashMap.Node<K, V> next) {
-        return new HashMap.Node<>(p.hash, p.key, p.value, next);
-    }
-
-    // Create a tree bin node
-    HashMap.TreeNode<K, V> newTreeNode(int hash, K key, V value, HashMap.Node<K, V> next) {
-        return new HashMap.TreeNode<>(hash, key, value, next);
-    }
-
-    // For treeifyBin
-    HashMap.TreeNode<K, V> replacementTreeNode(HashMap.Node<K, V> p, HashMap.Node<K, V> next) {
-        return new HashMap.TreeNode<>(p.hash, p.key, p.value, next);
-    }
-
-    /**
-     * Reset to initial default state.  Called by clone and readObject.
-     */
-    void reinitialize() {
-        table = null;
-        entrySet = null;
-        keySet = null;
-        values = null;
-        modCount = 0;
-        threshold = 0;
-        size = 0;
-    }
-
-    // Callbacks to allow LinkedHashMap post-actions
-    void afterNodeAccess(HashMap.Node<K, V> p) {
-    }
-
-    void afterNodeInsertion(boolean evict) {
-    }
-
-    void afterNodeRemoval(HashMap.Node<K, V> p) {
-    }
-
-    // Called only from writeObject, to ensure compatible ordering.
-    void internalWriteEntries(java.io.ObjectOutputStream s) throws IOException {
-        HashMap.Node<K, V>[] tab;
-        if (size > 0 && (tab = table) != null) {
-            for (HashMap.Node<K, V> e : tab) {
-                for (; e != null; e = e.next) {
-                    s.writeObject(e.key);
-                    s.writeObject(e.value);
-                }
-            }
-        }
-    }
-
-
+    //TreeNode
 }
