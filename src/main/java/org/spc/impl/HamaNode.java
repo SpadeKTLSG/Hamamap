@@ -2,6 +2,8 @@ package org.spc.impl;
 
 import org.spc.api.IHamaEntryEx;
 
+import java.util.Objects;
+
 /**
  * HamaNode
  * <p>
@@ -9,22 +11,46 @@ import org.spc.api.IHamaEntryEx;
  */
 public class HamaNode<K, V> implements IHamaEntryEx<K, V> {
 
+    final int hash;
+    final K key;
+    V value;
+    HamaNode<K, V> next;
 
-    public HamaNode() {
+    public HamaNode(int hash, K key, V value, HamaNode<K, V> next) {
+        this.hash = hash;
+        this.key = key;
+        this.value = value;
+        this.next = next;
     }
 
-    @Override
-    public K getKey() {
-        return null;
+    public final K getKey() {
+        return key;
     }
 
-    @Override
-    public V getValue() {
-        return null;
+    public final V getValue() {
+        return value;
     }
 
-    @Override
-    public V setValue(V value) {
-        return null;
+    public final String toString() {
+        return key + "=" + value;
+    }
+
+    public final int hashCode() {
+        return Objects.hashCode(key) ^ Objects.hashCode(value);
+    }
+
+    public final V setValue(V newValue) {
+        V oldValue = value;
+        value = newValue;
+        return oldValue;
+    }
+
+    public final boolean equals(Object o) {
+        if (o == this)
+            return true;
+
+        return o instanceof IHamaEntryEx<?, ?> e
+                && Objects.equals(key, e.getKey())
+                && Objects.equals(value, e.getValue());
     }
 }
