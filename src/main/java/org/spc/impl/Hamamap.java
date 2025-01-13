@@ -40,6 +40,12 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     /**
      * Default max insert retry
      * <p>
+     * 默认初始插入重试次数
+     */
+    final int initialRetry;
+    /**
+     * Default max insert retry
+     * <p>
      * 默认最大插入重试次数
      */
     final int maxRetry;
@@ -85,7 +91,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
 
     //! Builders 构建器
 
-    public Hamamap(int initialCapacity, float loadFactor, int maxRetry, int maxTrash) {
+    public Hamamap(int initialCapacity, float loadFactor, int maxRetry, int initialRetry, int maxTrash) {
         if (initialCapacity < 0) {
             throw new IllegalArgumentException("Illegal initial capacity 非法初始容量: " + initialCapacity);
         }
@@ -95,11 +101,25 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         if (loadFactor <= 0 || Float.isNaN(loadFactor)) {
             throw new IllegalArgumentException("Illegal load factor: 非法负载因子 " + loadFactor);
         }
+        if (maxRetry < 0) {
+            throw new IllegalArgumentException("Illegal max retry: 非法最大重试次数 " + maxRetry);
+        }
+        if (initialRetry < 0) {
+            throw new IllegalArgumentException("Illegal initial retry: 非法初始重试次数 " + initialRetry);
+        }
+        if (maxTrash < 0) {
+            throw new IllegalArgumentException("Illegal max trash: 非法最大垃圾数量 " + maxTrash);
+        }
         this.loadFactor = loadFactor;
         this.maxRetry = maxRetry;
+        this.initialRetry = initialRetry;
         this.maxTrash = maxTrash;
         this.threshold = Toolkit.tableSizeFor(initialCapacity);
 
+    }
+
+    public Hamamap(int initialCapacity, float loadFactor, int maxRetry, int initialRetry) {
+        this(initialCapacity, loadFactor, maxRetry, initialRetry, Constants.DEFAULT_MAX_TRASH);
     }
 
     public Hamamap(int initialCapacity, float loadFactor, int maxRetry) {
@@ -123,15 +143,75 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * <p>
      * 使用指定的Hamamap构造一个新的Hamamap, 具有相同的映射
      */
+    @SuppressWarnings("rawtypes")
     public Hamamap(IHamamapEx<? extends K, ? extends V> m) {
-        this.loadFactor = Constants.DEFAULT_LOAD_FACTOR;
-        this.maxRetry = Constants.DEFAULT_MAX_RETRY;
-        this.maxTrash = Constants.DEFAULT_MAX_TRASH;
+
+        Hamamap fake;
+        try {
+            fake = (Hamamap) m;
+        } catch (Exception e) {
+            throw new ClassCastException("Illegal Hamamap: 非法Hamamap");
+        }
+        this.loadFactor = fake.loadFactor;
+        this.maxRetry = fake.maxRetry;
+        this.initialRetry = fake.initialRetry;
+        this.maxTrash = fake.maxTrash;
+
         putMapEntries(m, false);
     }
 
 
-    //! Main Reborn Functions 主要重写功能
+    @Override
+    @SuppressWarnings("unchecked")
+    public Object clone() {
+        Hamamap<K, V> result;
+        try {
+            result = (Hamamap<K, V>) super.clone();
+        } catch (CloneNotSupportedException e) {
+            throw new InternalError(e);
+        }
+        result.reinitialize();
+        result.putMapEntries(this, false);
+        return result;
+    }
+
+    /**
+     * Reinitialize the map
+     * <p>
+     * 重新初始化映射
+     */
+    void reinitialize() {
+        table = null;
+        entrySet = null;
+        keySet = null;
+        values = null;
+        threshold = 0;
+        size = 0;
+    }
+
+
+    final float loadFactor() {
+        return loadFactor;
+    }
+
+    final int initialRetry() {
+        return initialRetry;
+    }
+
+    final int maxRetry() {
+        return maxRetry;
+    }
+
+    final int maxTrash() {
+        return maxTrash;
+    }
+
+    final int capacity() {
+        return (table != null) ? table.length : (threshold > 0) ? threshold : Constants.DEFAULT_INITIAL_CAPACITY;
+    }
+
+
+    //! Functions 核心功能
 
 
     /**
@@ -171,13 +251,12 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     }
 
 
-    //! Functions 功能
-
     /**
-     * Implements Map.get and related methods.
+     * get a node by key
+     * <p>
+     * 通过键获取一个节点
      *
-     * @param key the key
-     * @return the node, or null if none
+     * @note 查询不做修改
      */
     final HamaNode<K, V> getNode(Object key) {
         HamaNode<K, V>[] tab;
@@ -186,15 +265,19 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         K k;
 
         if ((tab = table) != null && (n = tab.length) > 0 && (first = tab[(n - 1) & (hash = Toolkit.hash(key))]) != null) {
+            // always check first node 总是检查第一个节点
             if (first.hash == hash && ((k = first.key) == key || (key != null && key.equals(k)))) {
-                return first; // always check first node
+                return first;
             }
+
             if ((e = first.next) != null) {
                 if (first instanceof HamaTreeNode<K, V>) {
                     return ((HamaTreeNode<K, V>) first).getTreeNode(hash, key);
                 }
                 do {
-                    if (e.hash == hash && ((k = e.key) == key || (key != null && key.equals(k)))) return e;
+                    if (e.hash == hash && ((k = e.key) == key || (key != null && key.equals(k)))) {
+                        return e;
+                    }
                 } while ((e = e.next) != null);
             }
         }
@@ -449,6 +532,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         return size;
     }
 
+
     @Override
     public boolean isEmpty() {
         return size == 0;
@@ -460,19 +544,21 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         return (e = getNode(key)) == null ? null : e.value;
     }
 
-
     @Override
     public boolean containsKey(Object key) {
         return getNode(key) != null;
     }
 
+    @Override
     public boolean containsValue(Object value) {
         HamaNode<K, V>[] tab;
         V v;
         if ((tab = table) != null && size > 0) {
             for (HamaNode<K, V> e : tab) {
                 for (; e != null; e = e.next) {
-                    if ((v = e.value) == value || (value != null && value.equals(v))) return true;
+                    if ((v = e.value) == value || (value != null && value.equals(v))) {
+                        return true;
+                    }
                 }
             }
         }
@@ -492,37 +578,35 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     }
 
 
-    @Override
-    @SuppressWarnings("unchecked")
-    public Object clone() {
-        Hamamap<K, V> result;
-        try {
-            result = (Hamamap<K, V>) super.clone();
-        } catch (CloneNotSupportedException e) {
-            // this shouldn't happen, since we are Cloneable
-            throw new InternalError(e);
+    //!  节点相关
+
+    /**
+     * Replaces all linked nodes in bin at index for given hash unless table is too small, in which case resizes instead
+     * <p>
+     * 除非表太小, 否则替换给定哈希索引处的bin中的所有链接节点, 否则调整大小
+     */
+    final void treeifyBin(HamaNode<K, V>[] tab, int hash) {
+        int n, index;
+        HamaNode<K, V> e;
+
+        if (tab == null || (n = tab.length) < Constants.MIN_TREEIFY_CAPACITY) {
+            resize();
+        } else if ((e = tab[index = (n - 1) & hash]) != null) {
+            HamaTreeNode<K, V> hd = null, tl = null;
+
+            do {
+                HamaTreeNode<K, V> p = replacementTreeNode(e, null);
+                if (tl == null) hd = p;
+                else {
+                    p.prev = tl;
+                    tl.next = p;
+                }
+                tl = p;
+            } while ((e = e.next) != null);
+            if ((tab[index] = hd) != null) {
+                hd.treeify(tab);
+            }
         }
-        result.reinitialize();
-        result.putMapEntries(this, false);
-        return result;
-    }
-
-    void reinitialize() {
-        table = null;
-        entrySet = null;
-        keySet = null;
-        values = null;
-        threshold = 0;
-        size = 0;
-    }
-
-
-    final float loadFactor() {
-        return loadFactor;
-    }
-
-    final int capacity() {
-        return (table != null) ? table.length : (threshold > 0) ? threshold : Constants.DEFAULT_INITIAL_CAPACITY;
     }
 
 
@@ -547,40 +631,18 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     }
 
 
-    //! 树相关功能
-
-    final void treeifyBin(HamaNode<K, V>[] tab, int hash) {
-        int n, index;
-        HamaNode<K, V> e;
-        if (tab == null || (n = tab.length) < Constants.MIN_TREEIFY_CAPACITY) resize();
-        else if ((e = tab[index = (n - 1) & hash]) != null) {
-            HamaTreeNode<K, V> hd = null, tl = null;
-            do {
-                HamaTreeNode<K, V> p = replacementTreeNode(e, null);
-                if (tl == null) hd = p;
-                else {
-                    p.prev = tl;
-                    tl.next = p;
-                }
-                tl = p;
-            } while ((e = e.next) != null);
-            if ((tab[index] = hd) != null) hd.treeify(tab);
-        }
-    }
-
-
     //! 迭代器
 
     abstract class HamaIterator {
-        HamaNode<K, V> next;        // next entry to return
-        HamaNode<K, V> current;     // current entry
-        int index;             // current slot
+        HamaNode<K, V> next;        // next entry to return 下一个要返回的条目
+        HamaNode<K, V> current;     // current entry    当前条目
+        int index;             // current slot    当前插槽
 
         HamaIterator() {
             HamaNode<K, V>[] t = table;
             current = next = null;
             index = 0;
-            if (t != null && size > 0) { // advance to first entry
+            if (t != null && size > 0) { // advance to first entry  前进到第一个条目
                 do {
                 } while (index < t.length && (next = t[index++]) == null);
             }
@@ -606,7 +668,9 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
 
         public final void remove() {
             HamaNode<K, V> p = current;
-            if (p == null) throw new IllegalStateException();
+            if (p == null) {
+                throw new IllegalStateException();
+            }
             current = null;
             removeNode(p.hash, p.key, null, false, false);
 
