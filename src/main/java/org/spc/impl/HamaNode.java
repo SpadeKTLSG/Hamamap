@@ -46,11 +46,8 @@ public class HamaNode<K, V> implements IHamaEntryEx<K, V> {
     }
 
     public final boolean equals(Object o) {
-        if (o == this)
-            return true;
+        if (o == this) return true;
 
-        return o instanceof IHamaEntryEx<?, ?> e
-                && Objects.equals(key, e.getKey())
-                && Objects.equals(value, e.getValue());
+        return o instanceof IHamaEntryEx<?, ?> e && Objects.equals(key, e.getKey()) && Objects.equals(value, e.getValue());
     }
 }

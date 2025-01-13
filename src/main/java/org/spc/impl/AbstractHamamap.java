@@ -23,6 +23,7 @@ public abstract class AbstractHamamap<K, V> implements IHamamapEx<K, V> {
 
     //Entry
     transient Collection<V> values;
+
     protected AbstractHamamap() {
     }
 

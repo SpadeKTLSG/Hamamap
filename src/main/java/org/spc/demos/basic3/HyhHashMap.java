@@ -1,7 +1,6 @@
 package org.spc.demos.basic3;
 
 
-
 import java.io.Serializable;
 
 /**
@@ -16,17 +15,15 @@ public class HyhHashMap<K, V> implements Myhmap<K, V>, Serializable {
      * 默认容量
      */
     static final int DEFAULT_CAPACITY = 16;
-
+    /**
+     * 负载因子
+     */
+    static final float DEFAULT_LOAD_FACTOR = 0.75f;
     int threshold;
     /**
      * 当前key索引位置
      */
     int keyIndex;
-
-    /**
-     * 负载因子
-     */
-    static final float DEFAULT_LOAD_FACTOR = 0.75f;
     /**
      * 保存Node<K,V>节点的数组
      */
@@ -35,6 +32,17 @@ public class HyhHashMap<K, V> implements Myhmap<K, V>, Serializable {
      * 存储当前Map容量的大小
      */
     int size;
+
+    /**
+     * 计算Hash值
+     *
+     * @param key
+     * @return
+     */
+    static final int hash(Object key) {
+        int h;
+        return (key == null) ? 0 : Math.abs((h = key.hashCode()) ^ (h >>> 16));
+    }
 
     @Override
     public void put(K key, V value) {
@@ -120,6 +128,13 @@ public class HyhHashMap<K, V> implements Myhmap<K, V>, Serializable {
     }
 
     /**
+     * 计算Hash值
+     *
+     * @param key
+     * @return
+     */
+
+    /**
      * 扩容
      *
      * @return
@@ -183,24 +198,6 @@ public class HyhHashMap<K, V> implements Myhmap<K, V>, Serializable {
 
         return newTable;
     }
-
-    /**
-     * 计算Hash值
-     *
-     * @param key
-     * @return
-     */
-    /**
-     * 计算Hash值
-     *
-     * @param key
-     * @return
-     */
-    static final int hash(Object key) {
-        int h;
-        return (key == null) ? 0 : Math.abs((h = key.hashCode()) ^ (h >>> 16));
-    }
-
 
     @Override
     public int size() {

@@ -497,6 +497,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         return new HamaTreeNode<>(p.hash, p.key, p.value, next);
     }
 
+
     //! 树相关功能
 
     final void treeifyBin(HamaNode<K, V>[] tab, int hash) {
@@ -517,6 +518,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             if ((tab[index] = hd) != null) hd.treeify(tab);
         }
     }
+
 
     //! 迭代器
 

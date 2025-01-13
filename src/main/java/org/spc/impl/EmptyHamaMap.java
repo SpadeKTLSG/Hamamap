@@ -4,7 +4,9 @@ import net.jcip.annotations.Immutable;
 import org.spc.api.IHamaEntryEx;
 
 import java.io.Serializable;
-import java.util.*;
+import java.util.Collection;
+import java.util.Objects;
+import java.util.Set;
 
 
 /**
@@ -13,7 +15,6 @@ import java.util.*;
  * 空Hamamap, 偷懒把可变的HashMap的内容不做修改, 直接位于此处
  *
  * @author SpadeKTLSG 玄桃K
- * @see Collections.EmptyMap
  */
 @Immutable
 public class EmptyHamaMap<K, V> extends AbstractHamamap<K, V> implements Serializable {
@@ -56,24 +57,20 @@ public class EmptyHamaMap<K, V> extends AbstractHamamap<K, V> implements Seriali
     }
 
     @Override
-    public Object get(Object key) {
+    public V get(Object key) {
         return null;
     }
 
     @Override
-    public Object put(Object key, Object value) {
+    public V put(Object key, Object value) {
         return null;
     }
 
     @Override
-    public Object remove(Object key) {
+    public V remove(Object key) {
         return null;
     }
 
-    @Override
-    public void putAll(Map m) {
-
-    }
 
     @Override
     public void clear() {
@@ -81,17 +78,17 @@ public class EmptyHamaMap<K, V> extends AbstractHamamap<K, V> implements Seriali
     }
 
     @Override
-    public Set keySet() {
+    public Set<K> keySet() {
         return null;
     }
 
     @Override
-    public Collection values() {
+    public Collection<V> values() {
         return null;
     }
 
     @Override
-    public Set<IHamaEntryEx> entrySet() {
+    public Set<IHamaEntryEx<K, V>> entrySet() {
         return null;
     }
 
