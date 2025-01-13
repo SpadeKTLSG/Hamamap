@@ -1,15 +1,34 @@
-package org.spc.demos.basic1;
+package org.spc.impl;
 
-import java.util.Map;
+import org.spc.api.IHamaEntryEx;
+
 import java.util.Objects;
 
-public class Node<K, V> implements Map.Entry<K, V> {
-    final int hash;
-    final K key;
-    V value;
-    Node<K, V> next;
+/**
+ * HamaNode
+ * <p>
+ * Hamamap的简单节点
+ */
+public class HamaNode<K, V> implements IHamaEntryEx<K, V> {
 
-    Node(int hash, K key, V value, Node<K, V> next) {
+    /**
+     * The hash
+     */
+    final int hash;
+    /**
+     * The key
+     */
+    final K key;
+    /**
+     * The value
+     */
+    V value;
+    /**
+     * The next
+     */
+    HamaNode<K, V> next;
+
+    public HamaNode(int hash, K key, V value, HamaNode<K, V> next) {
         this.hash = hash;
         this.key = key;
         this.value = value;
@@ -28,6 +47,7 @@ public class Node<K, V> implements Map.Entry<K, V> {
         return key + "=" + value;
     }
 
+
     public final int hashCode() {
         return Objects.hashCode(key) ^ Objects.hashCode(value);
     }
@@ -39,12 +59,10 @@ public class Node<K, V> implements Map.Entry<K, V> {
     }
 
     public final boolean equals(Object o) {
-        if (o == this)
-            return true;
-        if (o instanceof Map.Entry<?, ?> e) {
-            return Objects.equals(key, e.getKey()) &&
-                    Objects.equals(value, e.getValue());
-        }
-        return false;
+        if (o == this) return true;
+
+        return o instanceof IHamaEntryEx<?, ?> e && Objects.equals(key, e.getKey()) && Objects.equals(value, e.getValue());
     }
+
+
 }
