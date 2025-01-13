@@ -1,7 +1,5 @@
 package org.spc.impl;
 
-import lombok.Getter;
-import lombok.Setter;
 import org.spc.api.IHamaEntryEx;
 
 import java.util.Objects;
@@ -22,14 +20,6 @@ public class HamaNode<K, V> implements IHamaEntryEx<K, V> {
      */
     final K key;
     /**
-     * The hash helper, used to bypass hash collision
-     * <p>
-     * 哈希助手，用于绕过哈希冲突
-     */
-    @Getter
-    @Setter
-    public int hashHelper;
-    /**
      * The value
      */
     V value;
@@ -43,7 +33,6 @@ public class HamaNode<K, V> implements IHamaEntryEx<K, V> {
         this.key = key;
         this.value = value;
         this.next = next;
-        this.hashHelper = 1;
     }
 
     public final K getKey() {
@@ -60,8 +49,7 @@ public class HamaNode<K, V> implements IHamaEntryEx<K, V> {
 
 
     public final int hashCode() {
-        //增加hashHelper的hashCode
-        return Objects.hashCode(key) ^ Objects.hashCode(value) ^ Objects.hashCode(hashHelper);
+        return Objects.hashCode(key) ^ Objects.hashCode(value);
     }
 
     public final V setValue(V newValue) {
@@ -76,18 +64,5 @@ public class HamaNode<K, V> implements IHamaEntryEx<K, V> {
         return o instanceof IHamaEntryEx<?, ?> e && Objects.equals(key, e.getKey()) && Objects.equals(value, e.getValue());
     }
 
-    /**
-     * 调试用
-     */
-    public final int getHash() {
-        return hash;
-    }
-
-    /**
-     * 调试用
-     */
-    public final HamaNode<K, V> getNext() {
-        return next;
-    }
 
 }

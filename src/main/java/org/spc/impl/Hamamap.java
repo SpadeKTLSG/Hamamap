@@ -222,7 +222,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      */
     @Override
     public V put(K key, V value) {
-        return putVal(Toolkit.hash(key), key, value);
+        return putVal(Toolkit.hash(key), key, value, 0);
     }
 
 
@@ -293,9 +293,10 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * <p>
      * 插入一个KV
      *
+     * @param turn 插入次数, 初始为0
      * @note 插入时候要涉及到 "避让垃圾桶" 的逻辑 todo
      */
-    final V putVal(int hash, K key, V value) {
+    final V putVal(int hash, K key, V value, int turn) {
         HamaNode<K, V>[] tab;
         HamaNode<K, V> p;
         int n, i;
@@ -305,12 +306,23 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             n = (tab = resize()).length;
         }
 
-        //如果这个位置没有节点, 就直接插入
+        //如果这个位置没有节点, 就直接插入, 不需要处理垃圾桶逻辑
         if ((p = tab[i = (n - 1) & hash]) == null) {
             tab[i] = newNode(hash, key, value, null);
         } else {
+            //否则就要处理垃圾桶逻辑
             HamaNode<K, V> e;
             K k;
+
+            //? 垃圾桶逻辑: 当插入并且当前位置的垃圾桶存在垃圾(int[now] > 0)时, 就要递归重新插入, 用turn代表插入次数
+            // 当插入次数大于最大重试次数时, 就直接放这里, 不再递归
+            // {Rehash}方案和{Wrapper}方案, 最终只能选择包装器方案修改节点的对象
+
+            if (trashTable[i] > 0 && turn < maxRetry) {
+                Random random = new Random();
+                int newHash = random.nextInt();
+                return putVal(newHash, key, value, turn + 1);
+            }
 
             if (p.hash == hash && ((k = p.key) == key || (key != null && key.equals(k)))) {
                 e = p;
@@ -374,7 +386,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         for (IHamaEntryEx<? extends K, ? extends V> e : m.entrySet()) {
             K key = e.getKey();
             V value = e.getValue();
-            putVal(Toolkit.hash(key), key, value);
+            putVal(Toolkit.hash(key), key, value, 0);
         }
 
     }
