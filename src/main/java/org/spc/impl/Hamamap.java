@@ -38,6 +38,18 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      */
     final float loadFactor;
     /**
+     * Default max insert retry
+     * <p>
+     * 默认最大插入重试次数
+     */
+    final int maxRetry;
+    /**
+     * Default max trash (in a bucket)
+     * <p>
+     * 默认最大垃圾数量（在一个桶内）
+     */
+    final int maxTrash;
+    /**
      * Hash Buckets
      * <p>
      * 哈希桶数组
@@ -46,12 +58,10 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     /**
      * Bucket Identifier
      * <p>
-     * "垃圾桶"
+     * "垃圾桶", 一一对应上方的哈希桶
      */
     transient int[] crushTable;
 
-
-    //* Params 参数
     /**
      * Holds cached entrySet()
      * <p>
@@ -75,12 +85,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
 
     //! Builders 构建器
 
-    /**
-     * Constructs an empty Hamamap with the initial capacity and load factor
-     * <p>
-     * 使用初始容量和负载因子构造一个空的Hamamap
-     */
-    public Hamamap(int initialCapacity, float loadFactor) {
+    public Hamamap(int initialCapacity, float loadFactor, int maxRetry, int maxTrash) {
         if (initialCapacity < 0) {
             throw new IllegalArgumentException("Illegal initial capacity 非法初始容量: " + initialCapacity);
         }
@@ -91,7 +96,18 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             throw new IllegalArgumentException("Illegal load factor: 非法负载因子 " + loadFactor);
         }
         this.loadFactor = loadFactor;
+        this.maxRetry = maxRetry;
+        this.maxTrash = maxTrash;
         this.threshold = Toolkit.tableSizeFor(initialCapacity);
+
+    }
+
+    public Hamamap(int initialCapacity, float loadFactor, int maxRetry) {
+        this(initialCapacity, loadFactor, maxRetry, Constants.DEFAULT_MAX_TRASH);
+    }
+
+    public Hamamap(int initialCapacity, float loadFactor) {
+        this(initialCapacity, loadFactor, Constants.DEFAULT_MAX_RETRY, Constants.DEFAULT_MAX_TRASH);
     }
 
     public Hamamap(int initialCapacity) {
@@ -99,56 +115,29 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     }
 
     public Hamamap() {
-        this.loadFactor = Constants.DEFAULT_LOAD_FACTOR; // all other fields defaulted
+        this(DEFAULT_INITIAL_CAPACITY);
     }
 
+    /**
+     * Constructs a new Hamamap with the same mappings as the specified Hamamap
+     * <p>
+     * 使用指定的Hamamap构造一个新的Hamamap, 具有相同的映射
+     */
     public Hamamap(IHamamapEx<? extends K, ? extends V> m) {
         this.loadFactor = Constants.DEFAULT_LOAD_FACTOR;
+        this.maxRetry = Constants.DEFAULT_MAX_RETRY;
+        this.maxTrash = Constants.DEFAULT_MAX_TRASH;
         putMapEntries(m, false);
     }
 
 
-    //! Main Functions 主要功能
+    //! Main Reborn Functions 主要重写功能
 
-    @Override
-    public Set<IHamaEntryEx<K, V>> entrySet() {
-        Set<IHamaEntryEx<K, V>> es;
-        return (es = entrySet) == null ? (entrySet = new AbstractSet<>() {
-
-            @Override
-            public int size() {
-                return size;
-            }
-
-            @Override
-            public @NotNull Iterator<IHamaEntryEx<K, V>> iterator() {
-                return new EntryIterator();
-            }
-
-            public boolean contains(Object o) {
-                if (!(o instanceof IHamaEntryEx<?, ?> e)) return false;
-                Object key = e.getKey();
-                HamaNode<K, V> candidate = getNode(key);
-                return candidate != null && candidate.equals(e);
-            }
-
-            public boolean remove(Object o) {
-                if (o instanceof IHamaEntryEx<?, ?> e) {
-                    Object key = e.getKey();
-                    Object value = e.getValue();
-                    return removeNode(Toolkit.hash(key), key, value, true, true) != null;
-                }
-                return false;
-            }
-
-        }) : es;
-
-    }
 
     /**
-     * Add Reborn
+     * Add
      * <p>
-     * 添加 -> 见Hamamap具体实现
+     * 添加
      */
     @Override
     public V put(K key, V value) {
@@ -157,9 +146,9 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
 
 
     /**
-     * Remove Reborn
+     * Remove
      * <p>
-     * 移除 -> 见Hamamap具体实现
+     * 移除
      */
     @Override
     public V remove(Object key) {
@@ -168,9 +157,9 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     }
 
     /**
-     * Clear Reborn
+     * Clear
      * <p>
-     * 清空 -> 见Hamamap具体实现
+     * 清空
      */
     @Override
     public void clear() {
@@ -413,6 +402,47 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
 
 
     //! Side Functions 辅助功能
+
+    /**
+     * Returns a Set view of the keys contained in this map
+     * <p>
+     * 返回此映射中包含的键的Set视图
+     */
+    @Override
+    public Set<IHamaEntryEx<K, V>> entrySet() {
+        Set<IHamaEntryEx<K, V>> es;
+        return (es = entrySet) == null ? (entrySet = new AbstractSet<>() {
+
+            @Override
+            public int size() {
+                return size;
+            }
+
+            @Override
+            public @NotNull Iterator<IHamaEntryEx<K, V>> iterator() {
+                return new EntryIterator();
+            }
+
+            public boolean contains(Object o) {
+                if (!(o instanceof IHamaEntryEx<?, ?> e)) return false;
+                Object key = e.getKey();
+                HamaNode<K, V> candidate = getNode(key);
+                return candidate != null && candidate.equals(e);
+            }
+
+            public boolean remove(Object o) {
+                if (o instanceof IHamaEntryEx<?, ?> e) {
+                    Object key = e.getKey();
+                    Object value = e.getValue();
+                    return removeNode(Toolkit.hash(key), key, value, true, true) != null;
+                }
+                return false;
+            }
+
+        }) : es;
+
+    }
+
 
     @Override
     public int size() {

@@ -8,6 +8,31 @@ package org.spc.tool;
 public interface Constants {
 
 
+    //! Reborn
+
+    /**
+     * Default initial retry
+     * <p>
+     * 默认初始插入重试次数
+     */
+    int DEFAULT_INITIAL_RETRY = 1;
+
+    /**
+     * Default max retry
+     * <p>
+     * 默认最大重试次数
+     */
+    int DEFAULT_MAX_RETRY = 3;
+
+    /**
+     * Default max trash (in bucket)
+     * <p>
+     * (桶内)默认最大垃圾数量
+     */
+    int DEFAULT_MAX_TRASH = 1 << 4; // aka 16
+
+
+    //! Original
     /**
      * Default initial capacity - MUST be a power of two
      * <p>
