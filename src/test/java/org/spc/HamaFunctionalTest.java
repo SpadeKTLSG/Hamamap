@@ -7,9 +7,9 @@ import org.spc.impl.Hamamap;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * HamaTest
+ * HamaFunctionalTest   功能测试
  */
-class HamaTest {
+class HamaFunctionalTest {
 
     private Hamamap<String, Integer> map;
 
