@@ -1,14 +1,15 @@
 package org.spc.impl;
 
+import org.jetbrains.annotations.NotNull;
 import org.spc.api.IHamaEntryEx;
 import org.spc.api.IHamamap;
+import org.spc.api.IHamamapEx;
 import org.spc.tool.Constants;
 import org.spc.tool.Toolkit;
 
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.*;
-import java.util.function.Consumer;
 
 import static org.spc.tool.Constants.DEFAULT_INITIAL_CAPACITY;
 
@@ -84,14 +85,9 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      *                                  or the load factor is nonpositive
      */
     public Hamamap(int initialCapacity, float loadFactor) {
-        if (initialCapacity < 0)
-            throw new IllegalArgumentException("Illegal initial capacity: " +
-                    initialCapacity);
-        if (initialCapacity > Constants.MAXIMUM_CAPACITY)
-            initialCapacity = Constants.MAXIMUM_CAPACITY;
-        if (loadFactor <= 0 || Float.isNaN(loadFactor))
-            throw new IllegalArgumentException("Illegal load factor: " +
-                    loadFactor);
+        if (initialCapacity < 0) throw new IllegalArgumentException("Illegal initial capacity: " + initialCapacity);
+        if (initialCapacity > Constants.MAXIMUM_CAPACITY) initialCapacity = Constants.MAXIMUM_CAPACITY;
+        if (loadFactor <= 0 || Float.isNaN(loadFactor)) throw new IllegalArgumentException("Illegal load factor: " + loadFactor);
         this.loadFactor = loadFactor;
         this.threshold = Toolkit.tableSizeFor(initialCapacity);
     }
@@ -124,7 +120,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * @param m the map whose mappings are to be placed in this map
      * @throws NullPointerException if the specified map is null
      */
-    public Hamamap(Map<? extends K, ? extends V> m) {
+    public Hamamap(IHamamapEx<? extends K, ? extends V> m) {
         this.loadFactor = Constants.DEFAULT_LOAD_FACTOR;
         putMapEntries(m, false);
     }
@@ -135,7 +131,35 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     @Override
     public Set<IHamaEntryEx<K, V>> entrySet() {
         Set<IHamaEntryEx<K, V>> es;
-        return (es = entrySet) == null ? (entrySet = new EntrySet()) : es;
+        return (es = entrySet) == null ? (entrySet = new AbstractSet<>() {
+
+            @Override
+            public int size() {
+                return size;
+            }
+
+            @Override
+            public @NotNull Iterator<IHamaEntryEx<K, V>> iterator() {
+                return new EntryIterator();
+            }
+
+            public boolean contains(Object o) {
+                if (!(o instanceof IHamaEntryEx<?, ?> e)) return false;
+                Object key = e.getKey();
+                HamaNode<K, V> candidate = getNode(key);
+                return candidate != null && candidate.equals(e);
+            }
+
+            public boolean remove(Object o) {
+                if (o instanceof IHamaEntryEx<?, ?> e) {
+                    Object key = e.getKey();
+                    Object value = e.getValue();
+                    return removeNode(Toolkit.hash(key), key, value, true, true) != null;
+                }
+                return false;
+            }
+
+        }) : es;
 
     }
 
@@ -158,8 +182,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     @Override
     public V remove(Object key) {
         HamaNode<K, V> e;
-        return (e = removeNode(Toolkit.hash(key), key, null, false, true)) == null ?
-                null : e.value;
+        return (e = removeNode(Toolkit.hash(key), key, null, false, true)) == null ? null : e.value;
     }
 
     /**
@@ -172,8 +195,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         HamaNode<K, V>[] tab;
         if ((tab = table) != null && size > 0) {
             size = 0;
-            for (int i = 0; i < tab.length; ++i)
-                tab[i] = null;
+            Arrays.fill(tab, null);
         }
     }
 
@@ -192,41 +214,30 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         int n, hash;
         K k;
 
-        if ((tab = table) != null && (n = tab.length) > 0 &&
-                (first = tab[(n - 1) & (hash = Toolkit.hash(key))]) != null) {
+        if ((tab = table) != null && (n = tab.length) > 0 && (first = tab[(n - 1) & (hash = Toolkit.hash(key))]) != null) {
             if (first.hash == hash && // always check first node
-                    ((k = first.key) == key || (key != null && key.equals(k))))
-                return first;
+                    ((k = first.key) == key || (key != null && key.equals(k)))) return first;
             if ((e = first.next) != null) {
-                if (first instanceof HamaTreeNode<K, V>)
-                    return ((HamaTreeNode<K, V>) first).getTreeNode(hash, key);
+                if (first instanceof HamaTreeNode<K, V>) return ((HamaTreeNode<K, V>) first).getTreeNode(hash, key);
                 do {
-                    if (e.hash == hash &&
-                            ((k = e.key) == key || (key != null && key.equals(k))))
-                        return e;
+                    if (e.hash == hash && ((k = e.key) == key || (key != null && key.equals(k)))) return e;
                 } while ((e = e.next) != null);
             }
         }
         return null;
     }
 
-    final V putVal(int hash, K key, V value, boolean onlyIfAbsent,
-                   boolean evict) {
+    final V putVal(int hash, K key, V value, boolean onlyIfAbsent, boolean evict) {
         HamaNode<K, V>[] tab;
         HamaNode<K, V> p;
         int n, i;
-        if ((tab = table) == null || (n = tab.length) == 0)
-            n = (tab = resize()).length;
-        if ((p = tab[i = (n - 1) & hash]) == null)
-            tab[i] = newNode(hash, key, value, null);
+        if ((tab = table) == null || (n = tab.length) == 0) n = (tab = resize()).length;
+        if ((p = tab[i = (n - 1) & hash]) == null) tab[i] = newNode(hash, key, value, null);
         else {
             HamaNode<K, V> e;
             K k;
-            if (p.hash == hash &&
-                    ((k = p.key) == key || (key != null && key.equals(k))))
-                e = p;
-            else if (p instanceof HamaTreeNode)
-                e = ((HamaTreeNode<K, V>) p).putTreeVal(this, tab, hash, key, value);
+            if (p.hash == hash && ((k = p.key) == key || (key != null && key.equals(k)))) e = p;
+            else if (p instanceof HamaTreeNode) e = ((HamaTreeNode<K, V>) p).putTreeVal(this, tab, hash, key, value);
             else {
                 for (int binCount = 0; ; ++binCount) {
                     if ((e = p.next) == null) {
@@ -235,23 +246,19 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
                             treeifyBin(tab, hash);
                         break;
                     }
-                    if (e.hash == hash &&
-                            ((k = e.key) == key || (key != null && key.equals(k))))
-                        break;
+                    if (e.hash == hash && ((k = e.key) == key || (key != null && key.equals(k)))) break;
                     p = e;
                 }
             }
             if (e != null) { // existing mapping for key
                 V oldValue = e.value;
-                if (!onlyIfAbsent || oldValue == null)
-                    e.value = value;
-                afterNodeAccess(e);
+                if (!onlyIfAbsent || oldValue == null) e.value = value;
                 return oldValue;
             }
         }
-        if (++size > threshold)
+        if (++size > threshold) {
             resize();
-        afterNodeInsertion(evict);
+        }
         return null;
     }
 
@@ -262,27 +269,24 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * @param evict false when initially constructing this map, else
      *              true (relayed to method afterNodeInsertion).
      */
-    final void putMapEntries(Map<? extends K, ? extends V> m, boolean evict) {
+    final void putMapEntries(IHamamap<? extends K, ? extends V> m, boolean evict) {
         int s = m.size();
         if (s > 0) {
             if (table == null) { // pre-size
                 float ft = ((float) s / loadFactor) + 1.0F;
-                int t = ((ft < (float) MAXIMUM_CAPACITY) ?
-                        (int) ft : MAXIMUM_CAPACITY);
-                if (t > threshold)
-                    threshold = tableSizeFor(t);
+                int t = ((ft < (float) Constants.MAXIMUM_CAPACITY) ? (int) ft : Constants.MAXIMUM_CAPACITY);
+                if (t > threshold) threshold = Toolkit.tableSizeFor(t);
             } else {
                 // Because of linked-list bucket constraints, we cannot
                 // expand all at once, but can reduce total resize
                 // effort by repeated doubling now vs later
-                while (s > threshold && table.length < MAXIMUM_CAPACITY)
-                    resize();
+                while (s > threshold && table.length < Constants.MAXIMUM_CAPACITY) resize();
             }
 
-            for (Map.Entry<? extends K, ? extends V> e : m.entrySet()) {
+            for (IHamaEntryEx<? extends K, ? extends V> e : m.entrySet()) {
                 K key = e.getKey();
                 V value = e.getValue();
-                putVal(hash(key), key, value, false, evict);
+                putVal(Toolkit.hash(key), key, value, false, evict);
             }
         }
     }
@@ -297,9 +301,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             if (oldCap >= Constants.MAXIMUM_CAPACITY) {
                 threshold = Integer.MAX_VALUE;
                 return oldTab;
-            } else if ((newCap = oldCap << 1) < Constants.MAXIMUM_CAPACITY &&
-                    oldCap >= DEFAULT_INITIAL_CAPACITY)
-                newThr = oldThr << 1; // double threshold
+            } else if ((newCap = oldCap << 1) < Constants.MAXIMUM_CAPACITY && oldCap >= DEFAULT_INITIAL_CAPACITY) newThr = oldThr << 1; // double threshold
         } else if (oldThr > 0) // initial capacity was placed in threshold
             newCap = oldThr;
         else {               // zero initial threshold signifies using defaults
@@ -308,11 +310,11 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         }
         if (newThr == 0) {
             float ft = (float) newCap * loadFactor;
-            newThr = (newCap < Constants.MAXIMUM_CAPACITY && ft < (float) Constants.MAXIMUM_CAPACITY ?
-                    (int) ft : Integer.MAX_VALUE);
+            newThr = (newCap < Constants.MAXIMUM_CAPACITY && ft < (float) Constants.MAXIMUM_CAPACITY ? (int) ft : Integer.MAX_VALUE);
         }
         threshold = newThr;
-        @SuppressWarnings({"rawtypes", "unchecked"})
+
+        @SuppressWarnings({"unchecked"})
         HamaNode<K, V>[] newTab = (HamaNode<K, V>[]) new HamaNode[newCap];
         table = newTab;
         if (oldTab != null) {
@@ -320,10 +322,8 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
                 HamaNode<K, V> e;
                 if ((e = oldTab[j]) != null) {
                     oldTab[j] = null;
-                    if (e.next == null)
-                        newTab[e.hash & (newCap - 1)] = e;
-                    else if (e instanceof HamaTreeNode)
-                        ((HamaTreeNode<K, V>) e).split(this, newTab, j, oldCap);
+                    if (e.next == null) newTab[e.hash & (newCap - 1)] = e;
+                    else if (e instanceof HamaTreeNode) ((HamaTreeNode<K, V>) e).split(this, newTab, j, oldCap);
                     else { // preserve order
                         HamaNode<K, V> loHead = null, loTail = null;
                         HamaNode<K, V> hiHead = null, hiTail = null;
@@ -331,16 +331,12 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
                         do {
                             next = e.next;
                             if ((e.hash & oldCap) == 0) {
-                                if (loTail == null)
-                                    loHead = e;
-                                else
-                                    loTail.next = e;
+                                if (loTail == null) loHead = e;
+                                else loTail.next = e;
                                 loTail = e;
                             } else {
-                                if (hiTail == null)
-                                    hiHead = e;
-                                else
-                                    hiTail.next = e;
+                                if (hiTail == null) hiHead = e;
+                                else hiTail.next = e;
                                 hiTail = e;
                             }
                         } while ((e = next) != null);
@@ -360,27 +356,20 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     }
 
 
-    final HamaNode<K, V> removeNode(int hash, Object key, Object value,
-                                    boolean matchValue, boolean movable) {
+    final HamaNode<K, V> removeNode(int hash, Object key, Object value, boolean matchValue, boolean movable) {
         HamaNode<K, V>[] tab;
         HamaNode<K, V> p;
         int n, index;
-        if ((tab = table) != null && (n = tab.length) > 0 &&
-                (p = tab[index = (n - 1) & hash]) != null) {
+        if ((tab = table) != null && (n = tab.length) > 0 && (p = tab[index = (n - 1) & hash]) != null) {
             HamaNode<K, V> node = null, e;
             K k;
             V v;
-            if (p.hash == hash &&
-                    ((k = p.key) == key || (key != null && key.equals(k))))
-                node = p;
+            if (p.hash == hash && ((k = p.key) == key || (key != null && key.equals(k)))) node = p;
             else if ((e = p.next) != null) {
-                if (p instanceof HamaTreeNode)
-                    node = ((HamaTreeNode<K, V>) p).getTreeNode(hash, key);
+                if (p instanceof HamaTreeNode) node = ((HamaTreeNode<K, V>) p).getTreeNode(hash, key);
                 else {
                     do {
-                        if (e.hash == hash &&
-                                ((k = e.key) == key ||
-                                        (key != null && key.equals(k)))) {
+                        if (e.hash == hash && ((k = e.key) == key || (key != null && key.equals(k)))) {
                             node = e;
                             break;
                         }
@@ -388,16 +377,15 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
                     } while ((e = e.next) != null);
                 }
             }
-            if (node != null && (!matchValue || (v = node.value) == value ||
-                    (value != null && value.equals(v)))) {
-                if (node instanceof HamaTreeNode)
+            if (node != null && (!matchValue || (v = node.value) == value || (value != null && value.equals(v)))) {
+                if (node instanceof HamaTreeNode) {
                     ((HamaTreeNode<K, V>) node).removeTreeNode(this, tab, movable);
-                else if (node == p)
+                } else if (node == p) {
                     tab[index] = node.next;
-                else
+                } else {
                     p.next = node.next;
+                }
                 --size;
-                afterNodeRemoval(node);
                 return node;
             }
         }
@@ -435,39 +423,13 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         if ((tab = table) != null && size > 0) {
             for (HamaNode<K, V> e : tab) {
                 for (; e != null; e = e.next) {
-                    if ((v = e.value) == value ||
-                            (value != null && value.equals(v)))
-                        return true;
+                    if ((v = e.value) == value || (value != null && value.equals(v))) return true;
                 }
             }
         }
         return false;
     }
 
-
-    /**
-     * Returns a {@link Set} view of the keys contained in this map.
-     * The set is backed by the map, so changes to the map are
-     * reflected in the set, and vice-versa.  If the map is modified
-     * while an iteration over the set is in progress (except through
-     * the iterator's own {@code remove} operation), the results of
-     * the iteration are undefined.  The set supports element removal,
-     * which removes the corresponding mapping from the map, via the
-     * {@code Iterator.remove}, {@code Set.remove},
-     * {@code removeAll}, {@code retainAll}, and {@code clear}
-     * operations.  It does not support the {@code add} or {@code addAll}
-     * operations.
-     *
-     * @return a set view of the keys contained in this map
-     */
-    public Set<K> keySet() {
-        Set<K> ks = keySet;
-        if (ks == null) {
-            ks = new KeySet();
-            keySet = ks;
-        }
-        return ks;
-    }
 
     @Override
     public V getOrDefault(Object key, V defaultValue) {
@@ -482,6 +444,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
 
 
     @Override
+    @SuppressWarnings("unchecked")
     public Object clone() {
         Hamamap<K, V> result;
         try {
@@ -505,15 +468,12 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     }
 
 
-    // These methods are also used when serializing HashSets
     final float loadFactor() {
         return loadFactor;
     }
 
     final int capacity() {
-        return (table != null) ? table.length :
-                (threshold > 0) ? threshold :
-                        Constants.DEFAULT_INITIAL_CAPACITY;
+        return (table != null) ? table.length : (threshold > 0) ? threshold : Constants.DEFAULT_INITIAL_CAPACITY;
     }
 
 
@@ -542,124 +502,78 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     final void treeifyBin(HamaNode<K, V>[] tab, int hash) {
         int n, index;
         HamaNode<K, V> e;
-        if (tab == null || (n = tab.length) < Constants.MIN_TREEIFY_CAPACITY)
-            resize();
+        if (tab == null || (n = tab.length) < Constants.MIN_TREEIFY_CAPACITY) resize();
         else if ((e = tab[index = (n - 1) & hash]) != null) {
             HamaTreeNode<K, V> hd = null, tl = null;
             do {
                 HamaTreeNode<K, V> p = replacementTreeNode(e, null);
-                if (tl == null)
-                    hd = p;
+                if (tl == null) hd = p;
                 else {
                     p.prev = tl;
                     tl.next = p;
                 }
                 tl = p;
             } while ((e = e.next) != null);
-            if ((tab[index] = hd) != null)
-                hd.treeify(tab);
+            if ((tab[index] = hd) != null) hd.treeify(tab);
         }
     }
 
+    //! 迭代器
 
-    //! 内部类
+    abstract class HamaIterator {
+        HamaNode<K, V> next;        // next entry to return
+        HamaNode<K, V> current;     // current entry
+        int index;             // current slot
 
-    final class KeySet extends AbstractSet<K> {
-        public int size() {
-            return size;
-        }
-
-        public void clear() {
-            HashMap.this.clear();
-        }
-
-        public Iterator<K> iterator() {
-            return new HashMap.KeyIterator();
-        }
-
-        public boolean contains(Object o) {
-            return containsKey(o);
-        }
-
-        public boolean remove(Object key) {
-            return removeNode(hash(key), key, null, false, true) != null;
-        }
-
-        public Spliterator<K> spliterator() {
-            return new HashMap.KeySpliterator<>(HashMap.this, 0, -1, 0, 0);
-        }
-
-        public Object[] toArray() {
-            return keysToArray(new Object[size]);
-        }
-
-        public <T> T[] toArray(T[] a) {
-            return keysToArray(prepareArray(a));
-        }
-
-        public void forEach(Consumer<? super K> action) {
-            HamaNode<K, V>[] tab;
-            if (action == null)
-                throw new NullPointerException();
-            if (size > 0 && (tab = table) != null) {
-                int mc = modCount;
-                for (HamaNode<K, V> e : tab) {
-                    for (; e != null; e = e.next)
-                        action.accept(e.key);
-                }
-                if (modCount != mc)
-                    throw new ConcurrentModificationException();
+        HamaIterator() {
+            HamaNode<K, V>[] t = table;
+            current = next = null;
+            index = 0;
+            if (t != null && size > 0) { // advance to first entry
+                do {
+                } while (index < t.length && (next = t[index++]) == null);
             }
+        }
+
+        public final boolean hasNext() {
+            return next != null;
+        }
+
+        final HamaNode<K, V> nextNode() {
+            HamaNode<K, V>[] t;
+            HamaNode<K, V> e = next;
+            if (e == null) throw new NoSuchElementException();
+            if ((next = (current = e).next) == null && (t = table) != null) {
+                do {
+                } while (index < t.length && (next = t[index++]) == null);
+            }
+            return e;
+        }
+
+        public final void remove() {
+            HamaNode<K, V> p = current;
+            if (p == null) throw new IllegalStateException();
+            current = null;
+            removeNode(p.hash, p.key, null, false, false);
+
         }
     }
 
-    final class EntrySet extends AbstractSet<IHamaEntryEx<K, V>> {
-        public int size() {
-            return size;
+    final class KeyIterator extends HamaIterator implements Iterator<K> {
+        public K next() {
+            return nextNode().key;
         }
+    }
 
-        public void clear() {
-            HashMap.this.clear();
+    final class ValueIterator extends HamaIterator implements Iterator<V> {
+        public V next() {
+            return nextNode().value;
         }
+    }
 
-        public Iterator<Map.Entry<K, V>> iterator() {
-            return new HashMap.EntryIterator();
-        }
-
-        public boolean contains(Object o) {
-            if (!(o instanceof Map.Entry<?, ?> e))
-                return false;
-            Object key = e.getKey();
-            HashMap.Node<K, V> candidate = getNode(key);
-            return candidate != null && candidate.equals(e);
-        }
-
-        public boolean remove(Object o) {
-            if (o instanceof Map.Entry<?, ?> e) {
-                Object key = e.getKey();
-                Object value = e.getValue();
-                return removeNode(hash(key), key, value, true, true) != null;
-            }
-            return false;
-        }
-
-        public Spliterator<Map.Entry<K, V>> spliterator() {
-            return new HashMap.EntrySpliterator<>(HashMap.this, 0, -1, 0, 0);
-        }
-
-        public void forEach(Consumer<? super Map.Entry<K, V>> action) {
-            HashMap.Node<K, V>[] tab;
-            if (action == null)
-                throw new NullPointerException();
-            if (size > 0 && (tab = table) != null) {
-                int mc = modCount;
-                for (HashMap.Node<K, V> e : tab) {
-                    for (; e != null; e = e.next)
-                        action.accept(e);
-                }
-                if (modCount != mc)
-                    throw new ConcurrentModificationException();
-            }
+    final class EntryIterator extends HamaIterator implements Iterator<IHamaEntryEx<K, V>> {
+        public IHamaEntryEx<K, V> next() {
+            return nextNode();
         }
     }
 
