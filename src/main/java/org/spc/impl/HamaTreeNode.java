@@ -15,18 +15,45 @@ import static org.spc.tool.Toolkit.compareComparables;
  */
 public class HamaTreeNode<K, V> extends HamaNode<K, V> {
 
-    HamaTreeNode<K, V> parent;  // red-black tree links
+    /**
+     * The parent of this node,  red-black tree links
+     * <p>
+     * 该节点的父节点, 红黑树链接
+     */
+    HamaTreeNode<K, V> parent;
+    /**
+     * The left child of this node, or null if none
+     * <p>
+     * 该节点的左子节点，如果没有则为null
+     */
     HamaTreeNode<K, V> left;
+    /**
+     * The right child of this node, or null if none
+     * <p>
+     * 该节点的右子节点，如果没有则为null
+     */
     HamaTreeNode<K, V> right;
-    HamaTreeNode<K, V> prev;    // needed to unlink next upon deletion
+    /**
+     * The predecessor of this node in the traversal order
+     * <p>
+     * 该节点在遍历顺序中的前驱节点
+     */
+    HamaTreeNode<K, V> prev;
+
+    /**
+     * True if this node is red
+     * <p>
+     * 如果该节点是红色，则为true
+     */
     boolean red;
+
 
     HamaTreeNode(int hash, K key, V val, HamaNode<K, V> next) {
         super(hash, key, val, next);
     }
 
     /**
-     * Ensures that the given root is the first node of its bin.
+     * Ensures that the given root is the first node of its bin
      */
     static <K, V> void moveRootToFront(HamaNode<K, V>[] tab, HamaTreeNode<K, V> root) {
         int n;

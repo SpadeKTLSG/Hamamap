@@ -66,7 +66,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * <p>
      * "垃圾桶", 一一对应上方的哈希桶
      */
-    transient int[] crushTable;
+    transient int[] trashTable;
 
     /**
      * Holds cached entrySet()
@@ -157,7 +157,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         this.initialRetry = fake.initialRetry;
         this.maxTrash = fake.maxTrash;
 
-        putMapEntries(m, false);
+        putMapEntries(m);
     }
 
 
@@ -171,7 +171,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             throw new InternalError(e);
         }
         result.reinitialize();
-        result.putMapEntries(this, false);
+        result.putMapEntries(this);
         return result;
     }
 
@@ -182,6 +182,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      */
     void reinitialize() {
         table = null;
+        trashTable = null;
         entrySet = null;
         keySet = null;
         values = null;
@@ -221,7 +222,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      */
     @Override
     public V put(K key, V value) {
-        return putVal(Toolkit.hash(key), key, value, false, true);
+        return putVal(Toolkit.hash(key), key, value);
     }
 
 
@@ -247,6 +248,8 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         if ((tab = table) != null && size > 0) {
             size = 0;
             Arrays.fill(tab, null);
+            int[] trash = trashTable;
+            Arrays.fill(trash, 0);
         }
     }
 
@@ -265,7 +268,8 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         K k;
 
         if ((tab = table) != null && (n = tab.length) > 0 && (first = tab[(n - 1) & (hash = Toolkit.hash(key))]) != null) {
-            // always check first node 总是检查第一个节点
+
+            // 总是检查第一个节点
             if (first.hash == hash && ((k = first.key) == key || (key != null && key.equals(k)))) {
                 return first;
             }
@@ -289,9 +293,9 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * <p>
      * 插入一个KV
      *
-     * @return
+     * @note 插入时候要涉及到 "避让垃圾桶" 的逻辑 todo
      */
-    final V putVal(int hash, K key, V value, boolean onlyIfAbsent, boolean evict) {
+    final V putVal(int hash, K key, V value) {
         HamaNode<K, V>[] tab;
         HamaNode<K, V> p;
         int n, i;
@@ -316,107 +320,129 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
                 for (int binCount = 0; ; ++binCount) {
                     if ((e = p.next) == null) {
                         p.next = newNode(hash, key, value, null);
-                        if (binCount >= Constants.TREEIFY_THRESHOLD - 1) // -1 for 1st
+                        if (binCount >= Constants.TREEIFY_THRESHOLD - 1) //如果链表长度大于阈值, 就树化
                             treeifyBin(tab, hash);
                         break;
                     }
-                    if (e.hash == hash && ((k = e.key) == key || (key != null && key.equals(k)))) break;
+                    //如果找到了相同的键, 就直接跳出
+                    if (e.hash == hash && ((k = e.key) == key || (key != null && key.equals(k)))) {
+                        break;
+                    }
                     p = e;
                 }
             }
-            if (e != null) { // existing mapping for key    键的现有映射
+            if (e != null) { //如果找到了相同的键, 就直接替换值
                 V oldValue = e.value;
                 e.value = value;
                 return oldValue;
             }
         }
+
+        //如果插入成功, 还要检查是否需要扩容
         if (++size > threshold) {
             resize();
         }
         return null;
     }
 
-    /**
-     * Implements Map.putAll and Map constructor.
-     *
-     * @param m     the map
-     * @param evict false when initially constructing this map, else
-     *              true (relayed to method afterNodeInsertion).
-     */
-    final void putMapEntries(IHamamap<? extends K, ? extends V> m, boolean evict) {
-        int s = m.size();
-        if (s > 0) {
-            if (table == null) { // pre-size
-                float ft = ((float) s / loadFactor) + 1.0F;
-                int t = ((ft < (float) Constants.MAXIMUM_CAPACITY) ? (int) ft : Constants.MAXIMUM_CAPACITY);
-                if (t > threshold) {
-                    threshold = Toolkit.tableSizeFor(t);
-                }
-            } else {
-                // Because of linked-list bucket constraints, we cannot
-                // expand all at once, but can reduce total resize
-                // effort by repeated doubling now vs later
-                while (s > threshold && table.length < Constants.MAXIMUM_CAPACITY) {
-                    resize();
-                }
-            }
 
-            for (IHamaEntryEx<? extends K, ? extends V> e : m.entrySet()) {
-                K key = e.getKey();
-                V value = e.getValue();
-                putVal(Toolkit.hash(key), key, value, false, evict);
+    /**
+     * Implements Map.putAll and Map constructor
+     * <p>
+     * 实现Map.putAll和Map构造函数
+     */
+    final void putMapEntries(IHamamap<? extends K, ? extends V> m) {
+        int s = m.size();
+
+        if (s <= 0) {
+            return;
+        }
+
+        if (table == null) { // pre-size 如果自己的表为空, 就要预先设置大小
+            float ft = ((float) s / loadFactor) + 1.0F;
+            int t = ((ft < (float) Constants.MAXIMUM_CAPACITY) ? (int) ft : Constants.MAXIMUM_CAPACITY);
+            if (t > threshold) {
+                threshold = Toolkit.tableSizeFor(t);
+            }
+        } else {
+            while (s > threshold && table.length < Constants.MAXIMUM_CAPACITY) {
+                resize(); // Because of linked-list bucket constraints, we cannot expand all at once, but can reduce total resize effort by repeated doubling now vs later 由于链表桶约束,我们不能一次性扩展所有,但可以通过现在重复加倍而不是以后减少总调整大小的工作量
             }
         }
+
+        //遍历m, 把m的键值对插入到自己的表中
+        for (IHamaEntryEx<? extends K, ? extends V> e : m.entrySet()) {
+            K key = e.getKey();
+            V value = e.getValue();
+            putVal(Toolkit.hash(key), key, value);
+        }
+
     }
 
 
+    /**
+     * Rehash the table when the given capacity is reached
+     * <p>
+     * 当达到给定容量时重新哈希Hamamap table
+     *
+     * @note 扩容时, 按照逻辑讲, 应该暂时会变得宽敞起来, 因此我决定直接执行垃圾桶清空操作 (初始化长度)
+     */
     final HamaNode<K, V>[] resize() {
+
         HamaNode<K, V>[] oldTab = table;
         int oldCap = (oldTab == null) ? 0 : oldTab.length;
         int oldThr = threshold;
         int newCap, newThr = 0;
 
+        //如果旧容量大于0
         if (oldCap > 0) {
             if (oldCap >= Constants.MAXIMUM_CAPACITY) {
                 threshold = Integer.MAX_VALUE;
                 return oldTab;
-            } else if ((newCap = oldCap << 1) < Constants.MAXIMUM_CAPACITY && oldCap >= DEFAULT_INITIAL_CAPACITY) {
-                newThr = oldThr << 1; // double threshold
+            } else if ((newCap = oldCap << 1) < Constants.MAXIMUM_CAPACITY && oldCap >= Constants.DEFAULT_INITIAL_CAPACITY) {
+                newThr = oldThr << 1; // double threshold 两倍阈值
             }
         } else if (oldThr > 0) {
-            newCap = oldThr;    // initial capacity was placed in threshold
-        } else {               // zero initial threshold signifies using defaults
-            newCap = DEFAULT_INITIAL_CAPACITY;
-            newThr = (int) (Constants.DEFAULT_LOAD_FACTOR * DEFAULT_INITIAL_CAPACITY);
+            newCap = oldThr;    // initial capacity was placed in threshold 初始容量放在阈值中
+        } else {               // zero initial threshold signifies using defaults 零初始阈值表示使用默认值
+            newCap = Constants.DEFAULT_INITIAL_CAPACITY;
+            newThr = (int) (Constants.DEFAULT_LOAD_FACTOR * Constants.DEFAULT_INITIAL_CAPACITY);
         }
 
+        //如果新阈值为0, 计算新阈值
         if (newThr == 0) {
             float ft = (float) newCap * loadFactor;
             newThr = (newCap < Constants.MAXIMUM_CAPACITY && ft < (float) Constants.MAXIMUM_CAPACITY ? (int) ft : Integer.MAX_VALUE);
         }
 
-        threshold = newThr;
-
+        threshold = newThr; //更新阈值
         @SuppressWarnings({"unchecked"}) HamaNode<K, V>[] newTab = (HamaNode<K, V>[]) new HamaNode[newCap];
         table = newTab;
 
+        //摆好垃圾桶
+        trashTable = new int[newCap];
+        Arrays.fill(trashTable, 0); //赋值垃圾桶全为0
+
+        //如果旧表不为空, 要就把旧表的节点重新插入到新表中
         if (oldTab == null) {
             return newTab;
         }
 
+        //遍历旧表
         for (int j = 0; j < oldCap; ++j) {
             HamaNode<K, V> e;
 
-            if ((e = oldTab[j]) == null) {
+            if ((e = oldTab[j]) == null) { //如果这个位置没有节点, 就跳过
                 continue;
             }
 
             oldTab[j] = null;
-            if (e.next == null) {
+
+            if (e.next == null) { //如果这个位置只有一个节点, 就直接插入
                 newTab[e.hash & (newCap - 1)] = e;
-            } else if (e instanceof HamaTreeNode) {
+            } else if (e instanceof HamaTreeNode) { //如果这个节点是树节点, 要调用树节点的方法
                 ((HamaTreeNode<K, V>) e).split(this, newTab, j, oldCap);
-            } else { // preserve order
+            } else { // 否则就遍历链表, 重新插入
                 HamaNode<K, V> loHead = null, loTail = null;
                 HamaNode<K, V> hiHead = null, hiTail = null;
                 HamaNode<K, V> next;
@@ -426,12 +452,16 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
                     if ((e.hash & oldCap) == 0) {
                         if (loTail == null) {
                             loHead = e;
-                        } else loTail.next = e;
+                        } else {
+                            loTail.next = e;
+                        }
                         loTail = e;
                     } else {
                         if (hiTail == null) {
                             hiHead = e;
-                        } else hiTail.next = e;
+                        } else {
+                            hiTail.next = e;
+                        }
                         hiTail = e;
                     }
                 } while ((e = next) != null);
@@ -454,6 +484,13 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     }
 
 
+    /**
+     * Remove a node
+     * <p>
+     * 移除一个节点
+     *
+     * @note 删除需要带走该位置垃圾桶的一个垃圾对象, 就是把该位置的数组元素减一 todo
+     */
     final HamaNode<K, V> removeNode(int hash, Object key, Object value, boolean matchValue, boolean movable) {
         HamaNode<K, V>[] tab;
         HamaNode<K, V> p;
@@ -498,11 +535,6 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
 
     //! Side Functions 辅助功能
 
-    /**
-     * Returns a Set view of the keys contained in this map
-     * <p>
-     * 返回此映射中包含的键的Set视图
-     */
     @Override
     public Set<IHamaEntryEx<K, V>> entrySet() {
         Set<IHamaEntryEx<K, V>> es;
@@ -582,11 +614,6 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     public V getOrDefault(Object key, V defaultValue) {
         HamaNode<K, V> e;
         return (e = getNode(key)) == null ? defaultValue : e.value;
-    }
-
-    @Override
-    public V putIfAbsent(K key, V value) {
-        return putVal(Toolkit.hash(key), key, value, true, true);
     }
 
 
