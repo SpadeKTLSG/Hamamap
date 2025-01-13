@@ -699,7 +699,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     }
 
 
-    //! 迭代器
+    //! 迭代器 内部类
 
     abstract class HamaIterator {
         HamaNode<K, V> next;        // next entry to return 下一个要返回的条目
