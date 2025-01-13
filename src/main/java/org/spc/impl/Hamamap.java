@@ -318,11 +318,11 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             // 当插入次数大于最大重试次数时, 就直接放这里, 不再递归
             // {Rehash}方案和{Wrapper}方案, 最终只能选择包装器方案修改节点的对象
 
-            if (trashTable[i] > 0 && turn < maxRetry) {
-                Random random = new Random();
-                int newHash = random.nextInt();
-                return putVal(newHash, key, value, turn + 1);
-            }
+//            if (trashTable[i] > 0 && turn < maxRetry) {
+//                Random random = new Random();
+//                int newHash = random.nextInt();
+//                return putVal(newHash, key, value, turn + 1);
+//            }
 
             if (p.hash == hash && ((k = p.key) == key || (key != null && key.equals(k)))) {
                 e = p;
