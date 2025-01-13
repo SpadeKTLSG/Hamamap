@@ -1,8 +1,7 @@
 package org.spc.tool;
 
 
-import org.spc.api.IHamamapEx;
-import org.spc.impl.EmptyHamaMap;
+import org.spc.impl.Hamamap;
 
 public interface Collect<K, V> {
 
@@ -10,7 +9,7 @@ public interface Collect<K, V> {
     /**
      * Empty Hamamap (immutable - Fake)
      */
-    IHamamapEx EMPTY_MAP = new EmptyHamaMap<>();
+    Hamamap EMPTY_MAP = new Hamamap();
 
 
 }

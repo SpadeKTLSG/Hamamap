@@ -76,50 +76,32 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     //! Builders 构建器
 
     /**
-     * Constructs an empty {@code HashMap} with the specified initial
-     * capacity and load factor.
-     *
-     * @param initialCapacity the initial capacity
-     * @param loadFactor      the load factor
-     * @throws IllegalArgumentException if the initial capacity is negative
-     *                                  or the load factor is nonpositive
+     * Constructs an empty Hamamap with the initial capacity and load factor
+     * <p>
+     * 使用初始容量和负载因子构造一个空的Hamamap
      */
     public Hamamap(int initialCapacity, float loadFactor) {
-        if (initialCapacity < 0) throw new IllegalArgumentException("Illegal initial capacity: " + initialCapacity);
-        if (initialCapacity > Constants.MAXIMUM_CAPACITY) initialCapacity = Constants.MAXIMUM_CAPACITY;
-        if (loadFactor <= 0 || Float.isNaN(loadFactor)) throw new IllegalArgumentException("Illegal load factor: " + loadFactor);
+        if (initialCapacity < 0) {
+            throw new IllegalArgumentException("Illegal initial capacity 非法初始容量: " + initialCapacity);
+        }
+        if (initialCapacity > Constants.MAXIMUM_CAPACITY) {
+            initialCapacity = Constants.MAXIMUM_CAPACITY;
+        }
+        if (loadFactor <= 0 || Float.isNaN(loadFactor)) {
+            throw new IllegalArgumentException("Illegal load factor: 非法负载因子 " + loadFactor);
+        }
         this.loadFactor = loadFactor;
         this.threshold = Toolkit.tableSizeFor(initialCapacity);
     }
 
-    /**
-     * Constructs an empty {@code HashMap} with the specified initial
-     * capacity and the default load factor (0.75).
-     *
-     * @param initialCapacity the initial capacity.
-     * @throws IllegalArgumentException if the initial capacity is negative.
-     */
     public Hamamap(int initialCapacity) {
         this(initialCapacity, Constants.DEFAULT_LOAD_FACTOR);
     }
 
-    /**
-     * Constructs an empty {@code HashMap} with the default initial capacity
-     * (16) and the default load factor (0.75).
-     */
     public Hamamap() {
         this.loadFactor = Constants.DEFAULT_LOAD_FACTOR; // all other fields defaulted
     }
 
-    /**
-     * Constructs a new {@code HashMap} with the same mappings as the
-     * specified {@code Map}.  The {@code HashMap} is created with
-     * default load factor (0.75) and an initial capacity sufficient to
-     * hold the mappings in the specified {@code Map}.
-     *
-     * @param m the map whose mappings are to be placed in this map
-     * @throws NullPointerException if the specified map is null
-     */
     public Hamamap(IHamamapEx<? extends K, ? extends V> m) {
         this.loadFactor = Constants.DEFAULT_LOAD_FACTOR;
         putMapEntries(m, false);
@@ -215,10 +197,13 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         K k;
 
         if ((tab = table) != null && (n = tab.length) > 0 && (first = tab[(n - 1) & (hash = Toolkit.hash(key))]) != null) {
-            if (first.hash == hash && // always check first node
-                    ((k = first.key) == key || (key != null && key.equals(k)))) return first;
+            if (first.hash == hash && ((k = first.key) == key || (key != null && key.equals(k)))) {
+                return first; // always check first node
+            }
             if ((e = first.next) != null) {
-                if (first instanceof HamaTreeNode<K, V>) return ((HamaTreeNode<K, V>) first).getTreeNode(hash, key);
+                if (first instanceof HamaTreeNode<K, V>) {
+                    return ((HamaTreeNode<K, V>) first).getTreeNode(hash, key);
+                }
                 do {
                     if (e.hash == hash && ((k = e.key) == key || (key != null && key.equals(k)))) return e;
                 } while ((e = e.next) != null);
@@ -231,9 +216,14 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         HamaNode<K, V>[] tab;
         HamaNode<K, V> p;
         int n, i;
-        if ((tab = table) == null || (n = tab.length) == 0) n = (tab = resize()).length;
-        if ((p = tab[i = (n - 1) & hash]) == null) tab[i] = newNode(hash, key, value, null);
-        else {
+
+        if ((tab = table) == null || (n = tab.length) == 0) {
+            n = (tab = resize()).length;
+        }
+
+        if ((p = tab[i = (n - 1) & hash]) == null) {
+            tab[i] = newNode(hash, key, value, null);
+        } else {
             HamaNode<K, V> e;
             K k;
             if (p.hash == hash && ((k = p.key) == key || (key != null && key.equals(k)))) e = p;
@@ -275,12 +265,16 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             if (table == null) { // pre-size
                 float ft = ((float) s / loadFactor) + 1.0F;
                 int t = ((ft < (float) Constants.MAXIMUM_CAPACITY) ? (int) ft : Constants.MAXIMUM_CAPACITY);
-                if (t > threshold) threshold = Toolkit.tableSizeFor(t);
+                if (t > threshold) {
+                    threshold = Toolkit.tableSizeFor(t);
+                }
             } else {
                 // Because of linked-list bucket constraints, we cannot
                 // expand all at once, but can reduce total resize
                 // effort by repeated doubling now vs later
-                while (s > threshold && table.length < Constants.MAXIMUM_CAPACITY) resize();
+                while (s > threshold && table.length < Constants.MAXIMUM_CAPACITY) {
+                    resize();
+                }
             }
 
             for (IHamaEntryEx<? extends K, ? extends V> e : m.entrySet()) {
@@ -297,61 +291,81 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         int oldCap = (oldTab == null) ? 0 : oldTab.length;
         int oldThr = threshold;
         int newCap, newThr = 0;
+
         if (oldCap > 0) {
             if (oldCap >= Constants.MAXIMUM_CAPACITY) {
                 threshold = Integer.MAX_VALUE;
                 return oldTab;
-            } else if ((newCap = oldCap << 1) < Constants.MAXIMUM_CAPACITY && oldCap >= DEFAULT_INITIAL_CAPACITY) newThr = oldThr << 1; // double threshold
-        } else if (oldThr > 0) // initial capacity was placed in threshold
-            newCap = oldThr;
-        else {               // zero initial threshold signifies using defaults
+            } else if ((newCap = oldCap << 1) < Constants.MAXIMUM_CAPACITY && oldCap >= DEFAULT_INITIAL_CAPACITY) {
+                newThr = oldThr << 1; // double threshold
+            }
+        } else if (oldThr > 0) {
+            newCap = oldThr;    // initial capacity was placed in threshold
+        } else {               // zero initial threshold signifies using defaults
             newCap = DEFAULT_INITIAL_CAPACITY;
             newThr = (int) (Constants.DEFAULT_LOAD_FACTOR * DEFAULT_INITIAL_CAPACITY);
         }
+
         if (newThr == 0) {
             float ft = (float) newCap * loadFactor;
             newThr = (newCap < Constants.MAXIMUM_CAPACITY && ft < (float) Constants.MAXIMUM_CAPACITY ? (int) ft : Integer.MAX_VALUE);
         }
+
         threshold = newThr;
 
-        @SuppressWarnings({"unchecked"})
-        HamaNode<K, V>[] newTab = (HamaNode<K, V>[]) new HamaNode[newCap];
+        @SuppressWarnings({"unchecked"}) HamaNode<K, V>[] newTab = (HamaNode<K, V>[]) new HamaNode[newCap];
         table = newTab;
-        if (oldTab != null) {
-            for (int j = 0; j < oldCap; ++j) {
-                HamaNode<K, V> e;
-                if ((e = oldTab[j]) != null) {
-                    oldTab[j] = null;
-                    if (e.next == null) newTab[e.hash & (newCap - 1)] = e;
-                    else if (e instanceof HamaTreeNode) ((HamaTreeNode<K, V>) e).split(this, newTab, j, oldCap);
-                    else { // preserve order
-                        HamaNode<K, V> loHead = null, loTail = null;
-                        HamaNode<K, V> hiHead = null, hiTail = null;
-                        HamaNode<K, V> next;
-                        do {
-                            next = e.next;
-                            if ((e.hash & oldCap) == 0) {
-                                if (loTail == null) loHead = e;
-                                else loTail.next = e;
-                                loTail = e;
-                            } else {
-                                if (hiTail == null) hiHead = e;
-                                else hiTail.next = e;
-                                hiTail = e;
-                            }
-                        } while ((e = next) != null);
-                        if (loTail != null) {
-                            loTail.next = null;
-                            newTab[j] = loHead;
-                        }
-                        if (hiTail != null) {
-                            hiTail.next = null;
-                            newTab[j + oldCap] = hiHead;
-                        }
-                    }
-                }
-            }
+
+        if (oldTab == null) {
+            return newTab;
         }
+
+        for (int j = 0; j < oldCap; ++j) {
+            HamaNode<K, V> e;
+
+            if ((e = oldTab[j]) == null) {
+                continue;
+            }
+
+            oldTab[j] = null;
+            if (e.next == null) {
+                newTab[e.hash & (newCap - 1)] = e;
+            } else if (e instanceof HamaTreeNode) {
+                ((HamaTreeNode<K, V>) e).split(this, newTab, j, oldCap);
+            } else { // preserve order
+                HamaNode<K, V> loHead = null, loTail = null;
+                HamaNode<K, V> hiHead = null, hiTail = null;
+                HamaNode<K, V> next;
+
+                do {
+                    next = e.next;
+                    if ((e.hash & oldCap) == 0) {
+                        if (loTail == null) {
+                            loHead = e;
+                        } else loTail.next = e;
+                        loTail = e;
+                    } else {
+                        if (hiTail == null) {
+                            hiHead = e;
+                        } else hiTail.next = e;
+                        hiTail = e;
+                    }
+                } while ((e = next) != null);
+
+                if (loTail != null) {
+                    loTail.next = null;
+                    newTab[j] = loHead;
+                }
+
+                if (hiTail != null) {
+                    hiTail.next = null;
+                    newTab[j + oldCap] = hiHead;
+                }
+
+            }
+
+        }
+
         return newTab;
     }
 
@@ -360,14 +374,19 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         HamaNode<K, V>[] tab;
         HamaNode<K, V> p;
         int n, index;
+
         if ((tab = table) != null && (n = tab.length) > 0 && (p = tab[index = (n - 1) & hash]) != null) {
+
             HamaNode<K, V> node = null, e;
             K k;
             V v;
-            if (p.hash == hash && ((k = p.key) == key || (key != null && key.equals(k)))) node = p;
-            else if ((e = p.next) != null) {
-                if (p instanceof HamaTreeNode) node = ((HamaTreeNode<K, V>) p).getTreeNode(hash, key);
-                else {
+
+            if (p.hash == hash && ((k = p.key) == key || (key != null && key.equals(k)))) {
+                node = p;
+            } else if ((e = p.next) != null) {
+                if (p instanceof HamaTreeNode) {
+                    node = ((HamaTreeNode<K, V>) p).getTreeNode(hash, key);
+                } else {
                     do {
                         if (e.hash == hash && ((k = e.key) == key || (key != null && key.equals(k)))) {
                             node = e;
@@ -544,7 +563,10 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         final HamaNode<K, V> nextNode() {
             HamaNode<K, V>[] t;
             HamaNode<K, V> e = next;
-            if (e == null) throw new NoSuchElementException();
+
+            if (e == null) {
+                throw new NoSuchElementException();
+            }
             if ((next = (current = e).next) == null && (t = table) != null) {
                 do {
                 } while (index < t.length && (next = t[index++]) == null);

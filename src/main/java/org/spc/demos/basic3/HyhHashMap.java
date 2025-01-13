@@ -1,6 +1,8 @@
 package org.spc.demos.basic3;
 
 
+import org.spc.demos.basic1.Node;
+
 import java.io.Serializable;
 
 /**
@@ -127,114 +129,6 @@ public class HyhHashMap<K, V> implements Myhmap<K, V>, Serializable {
         return null;
     }
 
-    /**
-     * 计算Hash值
-     *
-     * @param key
-     * @return
-     */
 
-    /**
-     * 扩容
-     *
-     * @return
-     */
-    final Node<K, V>[] resize() {
-        Node<K, V>[] newTable;
-        int newCapacity, oldCapacity;
-        if (table == null) {
-            keyIndex = 0;
-            threshold = (int) (DEFAULT_CAPACITY * DEFAULT_LOAD_FACTOR);
-            table = (HyhHashMap.Node<K, V>[]) new HyhHashMap.Node[DEFAULT_CAPACITY];
-            newTable = table;
-        } else {
-            oldCapacity = table.length;
-            if (table.length > threshold) {
-                //扩容两倍
-                newCapacity = threshold *= 2;
-                newTable = (HyhHashMap.Node<K, V>[]) new HyhHashMap.Node[newCapacity];
-                //把原来的table移动到newTable
-                int newIndex = 0;
-                for (int i = 0; i < oldCapacity; i++) {
-                    Node<K, V> node = table[i];
-                    //咱们这只使用最简单的方式、不考虑其他情况、不涉及红黑树
-                    if (node != null) {
-                        if (node.next == null)
-                            newTable[newIndex] = node;
-                        else {
-                            HyhHashMap.Node<K, V> loHead = null, loTail = null, hiHead = null, hiTail = null, next;
-                            do {
-                                next = node.next;
-                                if (node.hash == 0) {
-                                    if (loTail == null)
-                                        loHead = node;
-                                    else
-                                        loTail.next = node;
-                                    loTail = node;
-                                } else {
-                                    if (hiTail == null)
-                                        hiHead = node;
-                                    else
-                                        hiTail.next = node;
-                                    hiTail = node;
-                                }
-                            } while ((node = next) != null);
-                            if (loTail != null) {
-                                loTail.next = null;
-                                newTable[newIndex] = loHead;
-                            }
-                            if (hiTail != null) {
-                                hiTail.next = null;
-                                newTable[newIndex + oldCapacity] = hiHead;
-                            }
-                        }
-                    }
-                    newIndex++;
-                }
-            } else {
-                newTable = table;
-            }
-        }
-
-        return newTable;
-    }
-
-    @Override
-    public int size() {
-        return size;
-    }
-
-    /**
-     * Node 实现HyhMap Entry接口
-     *
-     * @param <K>
-     * @param <V>
-     */
-    static class Node<K, V> implements Entry<K, V> {
-        //hash值
-        final int hash;
-        // key
-        final K key;
-        // value
-        V value;
-        // next节点
-        HyhHashMap.Node<K, V> next;
-
-        public Node(int hash, K key, V value, Node<K, V> next) {
-            this.hash = hash;
-            this.key = key;
-            this.value = value;
-            this.next = next;
-        }
-
-        public final K getKey() {
-            return key;
-        }
-
-        public final V getValue() {
-            return value;
-        }
-
-    }
 }
 
