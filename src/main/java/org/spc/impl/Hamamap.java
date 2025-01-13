@@ -284,23 +284,35 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         return null;
     }
 
+    /**
+     * Insert a node by KV
+     * <p>
+     * 插入一个KV
+     *
+     * @return
+     */
     final V putVal(int hash, K key, V value, boolean onlyIfAbsent, boolean evict) {
         HamaNode<K, V>[] tab;
         HamaNode<K, V> p;
         int n, i;
 
+        //如果哈希表为空, 或者长度为0, 就扩容
         if ((tab = table) == null || (n = tab.length) == 0) {
             n = (tab = resize()).length;
         }
 
+        //如果这个位置没有节点, 就直接插入
         if ((p = tab[i = (n - 1) & hash]) == null) {
             tab[i] = newNode(hash, key, value, null);
         } else {
             HamaNode<K, V> e;
             K k;
-            if (p.hash == hash && ((k = p.key) == key || (key != null && key.equals(k)))) e = p;
-            else if (p instanceof HamaTreeNode) e = ((HamaTreeNode<K, V>) p).putTreeVal(this, tab, hash, key, value);
-            else {
+
+            if (p.hash == hash && ((k = p.key) == key || (key != null && key.equals(k)))) {
+                e = p;
+            } else if (p instanceof HamaTreeNode) { //如果这个节点是树节点, 需要调用树节点的方法
+                e = ((HamaTreeNode<K, V>) p).putTreeVal(this, tab, hash, key, value);
+            } else { //正常节点就遍历链表
                 for (int binCount = 0; ; ++binCount) {
                     if ((e = p.next) == null) {
                         p.next = newNode(hash, key, value, null);
@@ -312,9 +324,9 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
                     p = e;
                 }
             }
-            if (e != null) { // existing mapping for key
+            if (e != null) { // existing mapping for key    键的现有映射
                 V oldValue = e.value;
-                if (!onlyIfAbsent || oldValue == null) e.value = value;
+                e.value = value;
                 return oldValue;
             }
         }
@@ -610,22 +622,39 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     }
 
 
-    // Create a regular (non-tree) node
+    /**
+     * Create a regular (non-tree) node
+     * <p>
+     * 创建一个常规（非树）节点
+     */
+
     HamaNode<K, V> newNode(int hash, K key, V value, HamaNode<K, V> next) {
         return new HamaNode<>(hash, key, value, next);
     }
 
-    // For conversion from TreeNodes to plain nodes
+    /**
+     * For conversion from TreeNodes to plain nodes
+     * <p>
+     * 从树节点转换为普通节点
+     */
     HamaNode<K, V> replacementNode(HamaNode<K, V> p, HamaNode<K, V> next) {
         return new HamaNode<>(p.hash, p.key, p.value, next);
     }
 
-    // Create a tree bin node
+    /**
+     * Create a tree node
+     * <p>
+     * 创建一个树节点
+     */
     HamaTreeNode<K, V> newTreeNode(int hash, K key, V value, HamaNode<K, V> next) {
         return new HamaTreeNode<>(hash, key, value, next);
     }
 
-    // For treeifyBin
+    /**
+     * For treeifyBin
+     * <p>
+     * 树化节点
+     */
     HamaTreeNode<K, V> replacementTreeNode(HamaNode<K, V> p, HamaNode<K, V> next) {
         return new HamaTreeNode<>(p.hash, p.key, p.value, next);
     }
