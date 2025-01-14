@@ -223,7 +223,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      */
     @Override
     public V put(K key, V value) {
-        return putVal(Toolkit.hash(key), key, value, 0);
+        return putVal(Toolkit.hash(key), key, value);
     }
 
 
@@ -302,19 +302,18 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     /**
      * Insert a node by KV
      * <p>
-     * 插入一个KV
+     * 插入一个KV - 主方法
      *
-     * @param turn 插入次数, 初始为0
-     * @note 插入时候要涉及到 "避让垃圾桶" 的逻辑 todo
+     * @note 插入时候要涉及到 "避让垃圾桶" 的逻辑
      */
-    // todo  Wrapper 封装一个
-    final V putVal(int hash, K key, V value, int turn, Boolean success) {
+    final V putVal(int hash, K key, V value) {
         Wrapper<K, V>[] tab;
         HamaNode<K, V>[] tabNode;
 
         Wrapper<K, V> p;
         HamaNode<K, V> pNode;
 
+        Boolean success = Boolean.FALSE;
         int n, i;
 
         //如果哈希表为空, 或者长度为0, 就扩容
@@ -325,12 +324,12 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         //! 如果这个位置没有节点(Wrapper) - 意味着没有垃圾直接短路, 就直接插入, 不需要处理垃圾桶逻辑
         if ((p = tab[i = (n - 1) & hash]) == null) {
             tab[i] = newNode(hash, key, value, null);
-            success = Boolean.TRUE; //成功钩子回调
-            return
+            return null;
         }
+
         //! 否则就要处理垃圾桶逻辑
 
-        HamaNode<K, V> e;
+        Wrapper<K, V> e;
         K k;
 
         //? 垃圾桶逻辑: 当插入并且当前位置的垃圾桶存在垃圾(int[now] > 0)时, 就要递归重新插入, 用turn代表插入次数
@@ -340,23 +339,21 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
 
         Wrapper<K, V> tempWrapper;
         V tempV;
-        tempV = putVal(hash, key, value, turn + 1, Boolean.FALSE);
-        //如果递归的插入成功
-        if (success == Boolean.TRUE) {
 
-        }
-        //否则, 判断能否再次插入: 初始重试和最大重试, 使用的Hash盐剧烈性不同
-        else if (turn < initialRetry) {
+        //改变hash实现修改插入位置
+        //此时节点还未初始化, 因此需要手动提前处理hash盐, 初始为 1 + 8
 
-        } else if (turn < maxRetry) {
+        tempV = putValRetry(hash, key, value, 0, Constants.DEFAULT_HASH_HELPER_VALUE, Boolean.FALSE);
+
+        if (success == Boolean.TRUE) { //探视到了空的新位置
 
         } else { //失败, 就在这里插入吧,
-//                trashTable[thistable.sit] +=1;
+            // trashTable[thistable.sit] +=1;
         }
 
 
-        if (pNode.hash == hash && ((k = pNode.key) == key || (key != null && key.equals(k)))) {
-            e = pNode;
+        if ((pNode = p.getNode()).hash == hash && ((k = pNode.key) == key || (key != null && key.equals(k)))) {
+            e = p;
         } else if (pNode instanceof HamaTreeNode) { //如果这个节点是树节点, 需要调用树节点的方法
             e = ((HamaTreeNode<K, V>) p).putTreeVal(this, tab, hash, key, value);
         } else { //正常节点就遍历链表
@@ -388,6 +385,30 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         return null;
     }
 
+    /**
+     * 处理插入的递归调用方法
+     *
+     * @param turn 插入次数, 初始为0
+     * @param salt 当前需要设置的
+     */
+    private V putValRetry(int hash, K key, V value, int turn, int salt, Boolean success) {
+        //失败插入, 需要改变hash进行插入. 使用盐进行重新计算位置
+
+        if (success == Boolean.TRUE) {
+
+        }
+        //否则, 判断能否再次插入: 初始重试和最大重试, 使用的Hash盐剧烈性不同
+        else if (turn < initialRetry) {
+
+        } else if (turn < maxRetry) {
+
+        } else { //失败, 就在这里插入吧,
+//                trashTable[thistable.sit] +=1;
+        }
+
+
+    }
+
 
     /**
      * Implements Map.putAll and Map constructor
@@ -417,7 +438,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         for (IHamaEntryEx<? extends K, ? extends V> e : m.entrySet()) {
             K key = e.getKey();
             V value = e.getValue();
-            putVal(Toolkit.hash(key), key, value, 0);
+            putVal(Toolkit.hash(key), key, value);
         }
 
     }
@@ -699,7 +720,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      */
 
     Wrapper<K, V> newNode(int hash, K key, V value, HamaNode<K, V> next) {
-        return new HamaNode<>(hash, key, value, next);
+        return new Wrapper<>(new HamaNode<>(hash, key, value, next));
     }
 
     /**
@@ -708,7 +729,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * 从树节点转换为普通节点
      */
     Wrapper<K, V> replacementNode(HamaNode<K, V> p, HamaNode<K, V> next) {
-        return new HamaNode<>(p.hash, p.key, p.value, next);
+        return new Wrapper<>(new HamaNode<>(p.hash, p.key, p.value, next));
     }
 
     /**
@@ -717,7 +738,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * 创建一个树节点
      */
     Wrapper<K, V> newTreeNode(int hash, K key, V value, HamaNode<K, V> next) {
-        return new HamaTreeNode<>(hash, key, value, next);
+        return new Wrapper<>(new HamaTreeNode<>(hash, key, value, next));
     }
 
     /**
@@ -726,7 +747,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * 树化节点
      */
     Wrapper<K, V> replacementTreeNode(HamaNode<K, V> p, HamaNode<K, V> next) {
-        return new HamaTreeNode<>(p.hash, p.key, p.value, next);
+        return new Wrapper<>(new HamaTreeNode<>(p.hash, p.key, p.value, next));
     }
 
 
