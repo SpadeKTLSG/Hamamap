@@ -104,4 +104,30 @@ public class HamaPerformanceTest {
         //计算两者差距的百分比: Hamamap的耗时是HashMap的多少倍:
         System.out.println("Hamamap delete time is " + (double) hmapDeleteTime / jmapDeleteTime + " times of HashMap");
     }
+
+
+    /**
+     * 测试Hamamap异常插入性能: 只插入特定的key
+     */
+    @Test
+    void testBadInsertPerformance() {
+        long startTime = System.nanoTime();
+        for (int i = 0; i < 100000000; i++) {
+            map.put("key" + 114, 514);
+        }
+        long endTime = System.nanoTime();
+        System.out.println("Hamamap insert time: " + (endTime - startTime) + " ns");
+        long hmapInsertTime = endTime - startTime;
+
+        startTime = System.nanoTime();
+        for (int i = 0; i < 100000000; i++) {
+            jmap.put("key" + 114, 514);
+        }
+        endTime = System.nanoTime();
+        System.out.println("HashMap insert time: " + (endTime - startTime) + " ns");
+        long jmapInsertTime = endTime - startTime;
+
+        //计算两者差距的百分比: Hamamap的耗时是HashMap的多少倍:
+        System.out.println("Hamamap insert time is " + (double) hmapInsertTime / jmapInsertTime + " times of HashMap");
+    }
 }

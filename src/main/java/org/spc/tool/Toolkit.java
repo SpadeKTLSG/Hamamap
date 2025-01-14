@@ -1,5 +1,7 @@
 package org.spc.tool;
 
+import org.spc.impl.HamaNode;
+
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 
@@ -8,6 +10,7 @@ import java.lang.reflect.Type;
  * <p>
  * 工具箱
  */
+@SuppressWarnings({"rawtypes", "unchecked"})
 public interface Toolkit {
 
     /**
@@ -71,4 +74,23 @@ public interface Toolkit {
         }
         return null;
     }
+
+    /**
+     * get Wrapped Node
+     * <p>
+     * 获取包装的节点
+     */
+    static HamaNode openNode(Wrapper wrapper) {
+        return wrapper.getNode();
+    }
+
+    /**
+     * set Wrapped Node
+     * <p>
+     * 设置包装的节点
+     */
+    static void setNode(Wrapper wrapper, HamaNode node) {
+        wrapper.setNode(node);
+    }
+
 }
