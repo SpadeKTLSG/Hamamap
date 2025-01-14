@@ -234,8 +234,8 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      */
     @Override
     public V remove(Object key) {
-        HamaNode<K, V> e;
-        return (e = removeNode(Toolkit.hash(key), key, null, false, true).getNode()) == null ? null : e.value;
+        Wrapper<K, V> e;
+        return (e = removeNode(Toolkit.hash(key), key, null, false, true)) == null ? null : e.getNode().getValue();
     }
 
     /**
