@@ -582,7 +582,7 @@ public class HamaTreeNode<K, V> extends HamaNode<K, V> {
      * @param index the index of the table being split
      * @param bit   the bit of hash to split on
      */
-    final void split(Hamamap<K, V> map, HamaNode<K, V>[] tab, int index, int bit) {
+    final void split(Hamamap<K, V> map, Wrapper<K, V>[] tab, int index, int bit) {
         HamaTreeNode<K, V> b = this;
         // Relink into lo and hi lists, preserving order
         HamaTreeNode<K, V> loHead = null, loTail = null;

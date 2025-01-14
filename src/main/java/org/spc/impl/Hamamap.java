@@ -235,7 +235,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     @Override
     public V remove(Object key) {
         HamaNode<K, V> e;
-        return (e = removeNode(Toolkit.hash(key), key, null, false, true)) == null ? null : e.value;
+        return (e = removeNode(Toolkit.hash(key), key, null, false, true).getNode()) == null ? null : e.value;
     }
 
     /**
@@ -324,6 +324,10 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         //! 如果这个位置没有节点(Wrapper) - 意味着没有垃圾直接短路, 就直接插入, 不需要处理垃圾桶逻辑
         if ((p = tab[i = (n - 1) & hash]) == null) {
             tab[i] = newNode(hash, key, value, null);
+
+            if (++size > threshold) {
+                resize();
+            }
             return null;
         }
 
@@ -333,22 +337,13 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         K k;
 
         //? 垃圾桶逻辑: 当插入并且当前位置的垃圾桶存在垃圾(int[now] > 0)时, 就要递归重新插入, 用turn代表插入次数
-        // 当插入次数大于最大重试次数时, 就直接放这里, 不再递归
         // {Rehash}方案和{Wrapper}方案, 最终只能选择包装器方案修改节点的对象
 
 
-        Wrapper<K, V> tempWrapper;
-        V tempV;
-
-        //改变hash实现修改插入位置
-        //此时节点还未初始化, 因此需要手动提前处理hash盐, 初始为 1 + 8
-
-        tempV = putValRetry(hash, key, value, 0, Constants.DEFAULT_HASH_HELPER_VALUE, Boolean.FALSE);
-
-        if (success == Boolean.TRUE) { //探视到了空的新位置
-
-        } else { //失败, 就在这里插入吧,
-            // trashTable[thistable.sit] +=1;
+        //改变hash实现修改插入位置:此时节点还未初始化, 因此需要手动提前处理hash盐, 初始为 1 + 8
+        V tempV = putValRetry(hash, key, value, 0, Constants.DEFAULT_HASH_HELPER_VALUE, success);
+        if (success) { //子方法插入成功
+            return tempV;
         }
 
 
@@ -377,8 +372,6 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             return oldValue;
         }
 
-
-        //如果插入成功, 还要检查是否需要扩容
         if (++size > threshold) {
             resize();
         }
@@ -453,7 +446,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      */
     final Wrapper<K, V>[] resize() {
 
-        HamaNode<K, V>[] oldTab = table;
+        Wrapper<K, V>[] oldTab = table;
         int oldCap = (oldTab == null) ? 0 : oldTab.length;
         int oldThr = threshold;
         int newCap, newThr = 0;
@@ -480,7 +473,8 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         }
 
         threshold = newThr; //更新阈值
-        @SuppressWarnings({"unchecked"}) HamaNode<K, V>[] newTab = (HamaNode<K, V>[]) new HamaNode[newCap];
+        @SuppressWarnings({"unchecked"})
+        Wrapper<K, V>[] newTab = (Wrapper<K, V>[]) new Wrapper[newCap];
         table = newTab;
 
         //摆好垃圾桶
@@ -496,14 +490,14 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         for (int j = 0; j < oldCap; ++j) {
             HamaNode<K, V> e;
 
-            if ((e = oldTab[j]) == null) { //如果这个位置没有节点, 就跳过
+            if ((e = oldTab[j].getNode()) == null) { //如果这个位置没有节点, 就跳过
                 continue;
             }
 
             oldTab[j] = null;
 
             if (e.next == null) { //如果这个位置只有一个节点, 就直接插入
-                newTab[e.hash & (newCap - 1)] = e;
+                newTab[e.hash & (newCap - 1)] = new Wrapper<>(e, e.getWrapper().getHashHelper());
             } else if (e instanceof HamaTreeNode) { //如果这个节点是树节点, 要调用树节点的方法
                 ((HamaTreeNode<K, V>) e).split(this, newTab, j, oldCap);
             } else { // 否则就遍历链表, 重新插入
@@ -532,12 +526,12 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
 
                 if (loTail != null) {
                     loTail.next = null;
-                    newTab[j] = loHead;
+                    newTab[j] = loHead.getWrapper();
                 }
 
                 if (hiTail != null) {
                     hiTail.next = null;
-                    newTab[j + oldCap] = hiHead;
+                    newTab[j + oldCap] = hiHead.getWrapper();
                 }
 
             }
@@ -555,14 +549,16 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      *
      * @note 删除需要带走该位置垃圾桶的一个垃圾对象, 就是把该位置的数组元素减一 todo
      */
-    final HamaNode<K, V> removeNode(int hash, Object key, Object value, boolean matchValue, boolean movable) {
-        HamaNode<K, V>[] tab;
-        HamaNode<K, V> p;
+    final Wrapper<K, V> removeNode(int hash, Object key, Object value, boolean matchValue, boolean movable) {
+        Wrapper<K, V>[] tab;
+        Wrapper<K, V> p;
+        HamaNode<K, V> pNode;
         int n, index;
 
         if ((tab = table) != null && (n = tab.length) > 0 && (p = tab[index = (n - 1) & hash]) != null) {
 
-            HamaNode<K, V> node = null, e;
+            HamaNode<K, V> node = null;
+            HamaNode<K, V> e;
             K k;
             V v;
 
@@ -617,8 +613,8 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             public boolean contains(Object o) {
                 if (!(o instanceof IHamaEntryEx<?, ?> e)) return false;
                 Object key = e.getKey();
-                HamaNode<K, V> candidate = getNode(key);
-                return candidate != null && candidate.equals(e);
+                Wrapper<K, V> candidate = getNode(key);
+                return candidate != null && candidate.getNode().equals(e);
             }
 
             public boolean remove(Object o) {
@@ -648,8 +644,8 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
 
     @Override
     public V get(Object key) {
-        HamaNode<K, V> e;
-        return (e = getNode(key)) == null ? null : e.value;
+        Wrapper<K, V> e;
+        return (e = getNode(key)) == null ? null : e.getNode().getValue();
     }
 
     @Override
@@ -659,25 +655,29 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
 
     @Override
     public boolean containsValue(Object value) {
-        HamaNode<K, V>[] tab;
+        Wrapper<K, V>[] tab;
         V v;
-        if ((tab = table) != null && size > 0) {
-            for (HamaNode<K, V> e : tab) {
-                for (; e != null; e = e.next) {
-                    if ((v = e.value) == value || (value != null && value.equals(v))) {
-                        return true;
-                    }
+        if ((tab = table) == null || size <= 0) {
+            return false;
+        }
+
+        for (Wrapper<K, V> e : tab) {
+            //对一个桶中的元素进行深入
+            for (HamaNode<K, V> ek = e.getNode(); ek != null; ek = ek.next) {
+                if ((v = ek.value) == value || (value != null && value.equals(v))) {
+                    return true;
                 }
             }
         }
+
         return false;
     }
 
 
     @Override
     public V getOrDefault(Object key, V defaultValue) {
-        HamaNode<K, V> e;
-        return (e = getNode(key)) == null ? defaultValue : e.value;
+        Wrapper<K, V> e;
+        return (e = getNode(key)) == null ? defaultValue : e.getNode().value;
     }
 
 
