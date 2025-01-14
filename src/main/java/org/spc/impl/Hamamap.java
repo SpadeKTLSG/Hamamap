@@ -307,7 +307,8 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * @param turn 插入次数, 初始为0
      * @note 插入时候要涉及到 "避让垃圾桶" 的逻辑 todo
      */
-    final V putVal(int hash, K key, V value, int turn) {
+    // todo  Wrapper 封装一个
+    final V putVal(int hash, K key, V value, int turn, Boolean success) {
         Wrapper<K, V>[] tab;
         HamaNode<K, V>[] tabNode;
 
@@ -321,47 +322,64 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             n = (tab = resize()).length;
         }
 
-        //如果这个位置没有节点(Wrapper), 就直接插入, 不需要处理垃圾桶逻辑
+        //! 如果这个位置没有节点(Wrapper) - 意味着没有垃圾直接短路, 就直接插入, 不需要处理垃圾桶逻辑
         if ((p = tab[i = (n - 1) & hash]) == null) {
             tab[i] = newNode(hash, key, value, null);
-        } else {
-            //否则就要处理垃圾桶逻辑
-            HamaNode<K, V> e;
-            K k;
+            success = Boolean.TRUE; //成功钩子回调
+            return
+        }
+        //! 否则就要处理垃圾桶逻辑
 
-            //? 垃圾桶逻辑: 当插入并且当前位置的垃圾桶存在垃圾(int[now] > 0)时, 就要递归重新插入, 用turn代表插入次数
-            // 当插入次数大于最大重试次数时, 就直接放这里, 不再递归
-            // {Rehash}方案和{Wrapper}方案, 最终只能选择包装器方案修改节点的对象
+        HamaNode<K, V> e;
+        K k;
 
-//            if (trashTable[i] > 0 && turn < maxRetry) {
-//                return putVal(newHash, key, value, turn + 1);
-//            }
+        //? 垃圾桶逻辑: 当插入并且当前位置的垃圾桶存在垃圾(int[now] > 0)时, 就要递归重新插入, 用turn代表插入次数
+        // 当插入次数大于最大重试次数时, 就直接放这里, 不再递归
+        // {Rehash}方案和{Wrapper}方案, 最终只能选择包装器方案修改节点的对象
 
-            if (p.hash == hash && ((k = p.key) == key || (key != null && key.equals(k)))) {
-                e = p;
-            } else if (p instanceof HamaTreeNode) { //如果这个节点是树节点, 需要调用树节点的方法
-                e = ((HamaTreeNode<K, V>) p).putTreeVal(this, tab, hash, key, value);
-            } else { //正常节点就遍历链表
-                for (int binCount = 0; ; ++binCount) {
-                    if ((e = p.next) == null) {
-                        p.next = newNode(hash, key, value, null);
-                        if (binCount >= Constants.TREEIFY_THRESHOLD - 1) //如果链表长度大于阈值, 就树化
-                            treeifyBin(tab, hash);
-                        break;
-                    }
-                    //如果找到了相同的键, 就直接跳出
-                    if (e.hash == hash && ((k = e.key) == key || (key != null && key.equals(k)))) {
-                        break;
-                    }
-                    p = e;
+
+        Wrapper<K, V> tempWrapper;
+        V tempV;
+        tempV = putVal(hash, key, value, turn + 1, Boolean.FALSE);
+        //如果递归的插入成功
+        if (success == Boolean.TRUE) {
+
+        }
+        //否则, 判断能否再次插入: 初始重试和最大重试, 使用的Hash盐剧烈性不同
+        else if (turn < initialRetry) {
+
+        } else if (turn < maxRetry) {
+
+        } else { //失败, 就在这里插入吧,
+//                trashTable[thistable.sit] +=1;
+        }
+
+
+        if (pNode.hash == hash && ((k = pNode.key) == key || (key != null && key.equals(k)))) {
+            e = pNode;
+        } else if (pNode instanceof HamaTreeNode) { //如果这个节点是树节点, 需要调用树节点的方法
+            e = ((HamaTreeNode<K, V>) p).putTreeVal(this, tab, hash, key, value);
+        } else { //正常节点就遍历链表
+            for (int binCount = 0; ; ++binCount) {
+                if ((e = p.next) == null) {
+                    p.next = newNode(hash, key, value, null);
+                    if (binCount >= Constants.TREEIFY_THRESHOLD - 1) //如果链表长度大于阈值, 就树化
+                        treeifyBin(tab, hash);
+                    break;
                 }
-            }
-            if (e != null) { //如果找到了相同的键, 就直接替换值
-                V oldValue = e.value;
-                e.value = value;
-                return oldValue;
+                //如果找到了相同的键, 就直接跳出
+                if (e.hash == hash && ((k = e.key) == key || (key != null && key.equals(k)))) {
+                    break;
+                }
+                p = e;
             }
         }
+        if (e != null) { //如果找到了相同的键, 就直接替换值
+            V oldValue = e.value;
+            e.value = value;
+            return oldValue;
+        }
+
 
         //如果插入成功, 还要检查是否需要扩容
         if (++size > threshold) {
@@ -712,7 +730,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     }
 
 
-    //! 迭代器 内部类
+//! 迭代器 内部类
 
     abstract class HamaIterator {
         HamaNode<K, V> next;        // next entry to return 下一个要返回的条目
