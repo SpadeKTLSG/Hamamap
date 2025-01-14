@@ -65,32 +65,4 @@ public interface Constants {
     float DEFAULT_LOAD_FACTOR = 0.75f; // aka ((75%)=> resize)
 
 
-    /**
-     * The bin count threshold for using a tree rather than list
-     * <p>
-     * 链树化的阈值
-     */
-    int TREEIFY_THRESHOLD = 8;
-
-
-    /**
-     * The bin count threshold for untreeifying a (split) bin during a
-     * resize operation. Should be less than TREEIFY_THRESHOLD, and at
-     * most 6 to mesh with shrinkage detection under removal.
-     * <p>
-     * 在调整大小操作期间取消树化（拆分）的阈值
-     * 应小于TREEIFY_THRESHOLD，最多为6，以便与删除时的缩小检测相匹配
-     */
-    int UNTREEIFY_THRESHOLD = 6;
-
-
-    /**
-     * The smallest table capacity for which bins may be treeified.
-     * Should be at least (4 - 8) * TREEIFY_THRESHOLD to avoid conflicts
-     * <p>
-     * 可以将链转换为树的最小表容量
-     * 应至少为(4 - 8) * TREEIFY_THRESHOLD以避免冲突, 取8
-     */
-    int MIN_TREEIFY_CAPACITY = 8 * TREEIFY_THRESHOLD; //aka 64
-
 }

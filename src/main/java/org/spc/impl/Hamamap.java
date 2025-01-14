@@ -161,7 +161,21 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         putMapEntries(m);
     }
 
+    /**
+     * Constructs a new Hamamap with the same mappings as the specified HashMap or so
+     * <p>
+     * 使用指定的HashMap或其他映射构造一个新的Hamamap (兼容 - 未完成)
+     */
+/*    @SuppressWarnings("rawtypes")
+    public Hamamap(Map<? extends K, ? extends V> m) {
 
+        HashMap fake = (HashMap) m;
+        this.loadFactor = Constants.DEFAULT_LOAD_FACTOR;
+        this.maxRetry = Constants.DEFAULT_MAX_RETRY;
+        this.initialRetry = Constants.DEFAULT_INITIAL_RETRY;
+        this.maxTrash =Constants.DEFAULT_MAX_TRASH;
+        putMapEntries(m);
+    }*/
     @Override
     @SuppressWarnings("unchecked")
     public Object clone() {
@@ -223,7 +237,9 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      */
     @Override
     public V put(K key, V value) {
-        return putVal(Toolkit.hash(key), key, value);
+        //采用试探的方式, 通过hash值和默认的hash盐值进行和. 到时候可以还原并采用别的Hash来改变位置
+        int testHash = Toolkit.hash(key) + Toolkit.hash(Constants.DEFAULT_HASH_HELPER_VALUE);
+        return putVal(testHash, key, value);
     }
 
 
@@ -286,9 +302,6 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             }
 
             if ((eNode = firstNode.next) != null) {
-                if (firstNode instanceof HamaTreeNode<K, V>) {
-                    return ((HamaTreeNode<K, V>) firstNode).getTreeNode(hash, key);
-                }
                 do {
                     if (eNode.hash == hash && ((k = eNode.key) == key || (key != null && key.equals(k)))) {
                         return eNode.getWrapper();
@@ -349,14 +362,10 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
 
         if ((pNode = p.getNode()).hash == hash && ((k = pNode.key) == key || (key != null && key.equals(k)))) {
             e = p;
-        } else if (pNode instanceof HamaTreeNode) { //如果这个节点是树节点, 需要调用树节点的方法
-            e = ((HamaTreeNode<K, V>) p).putTreeVal(this, tab, hash, key, value);
-        } else { //正常节点就遍历链表
-            for (int binCount = 0; ; ++binCount) {
+        } else {
+            for (; ; ) {
                 if ((e = p.next) == null) {
                     p.next = newNode(hash, key, value, null);
-                    if (binCount >= Constants.TREEIFY_THRESHOLD - 1) //如果链表长度大于阈值, 就树化
-                        treeifyBin(tab, hash);
                     break;
                 }
                 //如果找到了相同的键, 就直接跳出
@@ -366,7 +375,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
                 p = e;
             }
         }
-        if (e != null) { //如果找到了相同的键, 就直接替换值
+        if (e != null) { //如果对应位置的对象不为空即为 找到了相同的键, 就直接替换值
             V oldValue = e.value;
             e.value = value;
             return oldValue;
@@ -431,6 +440,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         for (IHamaEntryEx<? extends K, ? extends V> e : m.entrySet()) {
             K key = e.getKey();
             V value = e.getValue();
+            //这里同样通过hash值和默认的hash盐值进行和, 同样走试探的方法, 以便还原
             putVal(Toolkit.hash(key), key, value);
         }
 
@@ -498,9 +508,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
 
             if (e.next == null) { //如果这个位置只有一个节点, 就直接插入
                 newTab[e.hash & (newCap - 1)] = new Wrapper<>(e, e.getWrapper().getHashHelper());
-            } else if (e instanceof HamaTreeNode) { //如果这个节点是树节点, 要调用树节点的方法
-                ((HamaTreeNode<K, V>) e).split(this, newTab, j, oldCap);
-            } else { // 否则就遍历链表, 重新插入
+            } else { // 遍历链表, 重新插入
                 HamaNode<K, V> loHead = null, loTail = null;
                 HamaNode<K, V> hiHead = null, hiTail = null;
                 HamaNode<K, V> next;
@@ -565,22 +573,18 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             if (p.hash == hash && ((k = p.key) == key || (key != null && key.equals(k)))) {
                 node = p;
             } else if ((e = p.next) != null) {
-                if (p instanceof HamaTreeNode) {
-                    node = ((HamaTreeNode<K, V>) p).getTreeNode(hash, key);
-                } else {
-                    do {
-                        if (e.hash == hash && ((k = e.key) == key || (key != null && key.equals(k)))) {
-                            node = e;
-                            break;
-                        }
-                        p = e;
-                    } while ((e = e.next) != null);
-                }
+
+                do {
+                    if (e.hash == hash && ((k = e.key) == key || (key != null && key.equals(k)))) {
+                        node = e;
+                        break;
+                    }
+                    p = e;
+                } while ((e = e.next) != null);
+
             }
             if (node != null && (!matchValue || (v = node.value) == value || (value != null && value.equals(v)))) {
-                if (node instanceof HamaTreeNode) {
-                    ((HamaTreeNode<K, V>) node).removeTreeNode(this, tab, movable);
-                } else if (node == p) {
+                if (node == p) {
                     tab[index] = node.next;
                 } else {
                     p.next = node.next;
@@ -684,36 +688,6 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     //!  节点相关
 
     /**
-     * Replaces all linked nodes in bin at index for given hash unless table is too small, in which case resizes instead
-     * <p>
-     * 除非表太小, 否则替换给定哈希索引处的bin中的所有链接节点, 否则调整大小
-     */
-    final void treeifyBin(HamaNode<K, V>[] tab, int hash) {
-        int n, index;
-        HamaNode<K, V> e;
-
-        if (tab == null || (n = tab.length) < Constants.MIN_TREEIFY_CAPACITY) {
-            resize();
-        } else if ((e = tab[index = (n - 1) & hash]) != null) {
-            HamaTreeNode<K, V> hd = null, tl = null;
-
-            do {
-                HamaTreeNode<K, V> p = replacementTreeNode(e, null);
-                if (tl == null) hd = p;
-                else {
-                    p.prev = tl;
-                    tl.next = p;
-                }
-                tl = p;
-            } while ((e = e.next) != null);
-            if ((tab[index] = hd) != null) {
-                hd.treeify(tab);
-            }
-        }
-    }
-
-
-    /**
      * Create a regular (non-tree) node
      * <p>
      * 创建一个常规（非树）节点
@@ -721,33 +695,6 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
 
     Wrapper<K, V> newNode(int hash, K key, V value, HamaNode<K, V> next) {
         return new Wrapper<>(new HamaNode<>(hash, key, value, next));
-    }
-
-    /**
-     * For conversion from TreeNodes to plain nodes
-     * <p>
-     * 从树节点转换为普通节点
-     */
-    Wrapper<K, V> replacementNode(HamaNode<K, V> p, HamaNode<K, V> next) {
-        return new Wrapper<>(new HamaNode<>(p.hash, p.key, p.value, next));
-    }
-
-    /**
-     * Create a tree node
-     * <p>
-     * 创建一个树节点
-     */
-    Wrapper<K, V> newTreeNode(int hash, K key, V value, HamaNode<K, V> next) {
-        return new Wrapper<>(new HamaTreeNode<>(hash, key, value, next));
-    }
-
-    /**
-     * For treeifyBin
-     * <p>
-     * 树化节点
-     */
-    Wrapper<K, V> replacementTreeNode(HamaNode<K, V> p, HamaNode<K, V> next) {
-        return new Wrapper<>(new HamaTreeNode<>(p.hash, p.key, p.value, next));
     }
 
 

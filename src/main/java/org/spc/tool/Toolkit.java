@@ -16,7 +16,7 @@ public interface Toolkit {
     /**
      * Hash Tool for hamamap
      * <p>
-     * Hamamap的哈希工具
+     * Hamamap的哈希工具, 必须结合使用包装器方法
      */
     static int hash(Object key) {
         int h;
