@@ -251,7 +251,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     @Override
     public V remove(Object key) {
         Wrapper<K, V> e;
-        return (e = removeNode(Toolkit.hash(key), key, null, false, true)) == null ? null : e.getNode().getValue();
+        return (e = removeNode(Toolkit.hash(key), key, null, false)) == null ? null : e.getNode().getValue();
     }
 
     /**
@@ -280,7 +280,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * <p>
      * 通过键获取一个节点
      *
-     * @note 查询不做修改
+     * @note 查询需要从多个可能的位置寻找, 因此重试次数不能过多, 否则会导致性能问题
      */
     final Wrapper<K, V> getNode(Object key) {
         Wrapper<K, V>[] tab;
@@ -290,7 +290,8 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
 
         Wrapper<K, V> e;
         HamaNode<K, V> eNode;
-        int n, hash;
+        int n;
+        int hash;
         K k;
 
 
@@ -302,6 +303,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
 
 
         //Todo 发起多线程查询, 使用线程池 + CountDownLatch等组件
+        getNodeByHash(hash, key);
 
         if ((tab = table) != null && (n = tab.length) > 0 && (first = tab[(n - 1) & (hash = Toolkit.hash(key))]) != null) {
             //? 包装器处理
@@ -321,6 +323,15 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         }
         return null;
     }
+
+
+    /**
+     * 处理多线程查询
+     */
+    private Wrapper<K, V> getNodeByHash(int hash, Object key) {
+
+    }
+
 
     /**
      * Insert a node by KV
@@ -566,7 +577,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      *
      * @note 删除需要带走该位置垃圾桶的一个垃圾对象, 就是把该位置的数组元素减一
      */
-    final Wrapper<K, V> removeNode(int hash, Object key, Object value, boolean matchValue, boolean movable) {
+    final Wrapper<K, V> removeNode(int hash, Object key, Object value, boolean matchValue) {
         Wrapper<K, V>[] tab;
         Wrapper<K, V> p;
         HamaNode<K, V> pNode;
@@ -579,8 +590,8 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             K k;
             V v;
 
-            if (p.hash == hash && ((k = p.key) == key || (key != null && key.equals(k)))) {
-                node = p;
+            if (p.getNode().hash == hash && ((k = p.getNode().getKey()) == key || (key != null && key.equals(k)))) {
+                node = p.getNode();
             } else if ((e = p.next) != null) {
 
                 do {
@@ -634,7 +645,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
                 if (o instanceof IHamaEntryEx<?, ?> e) {
                     Object key = e.getKey();
                     Object value = e.getValue();
-                    return removeNode(Toolkit.hash(key), key, value, true, true) != null;
+                    return removeNode(Toolkit.hash(key), key, value, true) != null;
                 }
                 return false;
             }
@@ -690,6 +701,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     @Override
     public V getOrDefault(Object key, V defaultValue) {
         Wrapper<K, V> e;
+
         return (e = getNode(key)) == null ? defaultValue : e.getNode().value;
     }
 
@@ -748,7 +760,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
                 throw new IllegalStateException();
             }
             current = null;
-            removeNode(p.getNode().hash, p.getNode().key, null, false, false);
+            removeNode(p.getNode().hash, p.getNode().key, null, false);
 
         }
     }
