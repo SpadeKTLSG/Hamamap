@@ -293,6 +293,16 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         int n, hash;
         K k;
 
+
+        //Todo 只给出一个Key, 但是真正存放的时候, 可能存在下面几个可能的位置是真正存放的地方:
+        //hash =[ {key} + {hashHelper} * {0~maxRetry}]
+        //因此要发起多线程查询, 以便找到真正的位置
+
+        //Todo 首先要计算出所有可能的位置:
+
+
+        //Todo 发起多线程查询, 使用线程池 + CountDownLatch等组件
+
         if ((tab = table) != null && (n = tab.length) > 0 && (first = tab[(n - 1) & (hash = Toolkit.hash(key))]) != null) {
             //? 包装器处理
             firstNode = first.getNode();
@@ -320,14 +330,13 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * @note 插入时候要涉及到 "避让垃圾桶" 的逻辑
      */
     final V putVal(int hash, K key, V value) {
-        Wrapper<K, V>[] tab;
-        HamaNode<K, V>[] tabNode;
+        Wrapper<K, V>[] tab; //本地哈希表引用
+        Wrapper<K, V> p; //当前位置的包装器
+        HamaNode<K, V> pNode; //当前位置的节点
 
-        Wrapper<K, V> p;
-        HamaNode<K, V> pNode;
 
-        Boolean success = Boolean.FALSE;
-        int n, i;
+        int n; // 记录哈希表的长度length
+        int i; // 记录哈希表的位置sit
 
         //如果哈希表为空, 或者长度为0, 就扩容
         if ((tab = table) == null || (n = tab.length) == 0) {
@@ -344,15 +353,11 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             return null;
         }
 
-        //! 否则就要处理垃圾桶逻辑
-
-        Wrapper<K, V> e;
-        K k;
-
-        //? 垃圾桶逻辑: 当插入并且当前位置的垃圾桶存在垃圾(int[now] > 0)时, 就要递归重新插入, 用turn代表插入次数
-        // {Rehash}方案和{Wrapper}方案, 最终只能选择包装器方案修改节点的对象
-
-
+        //! 否则就要处理垃圾桶逻辑:
+        Wrapper<K, V> e; //临时位置包装器
+        K k; //临时键
+        Boolean success = Boolean.FALSE; //记录是否插入成功
+        // 当插入并且当前位置的垃圾桶存在垃圾(int[now] > 0)时, 就要开始执行递归重新插入, 用turn代表插入次数
         //改变hash实现修改插入位置:此时节点还未初始化, 因此需要手动提前处理hash盐, 初始为 1 + 8
         V tempV = putValRetry(hash, key, value, 0, Constants.DEFAULT_HASH_HELPER_VALUE, success);
         if (success) { //子方法插入成功
@@ -395,6 +400,10 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      */
     private V putValRetry(int hash, K key, V value, int turn, int salt, Boolean success) {
         //失败插入, 需要改变hash进行插入. 使用盐进行重新计算位置
+
+        //将turn * 基础参数做成 盐 混合形成新的hash值
+        int testHash = Toolkit.hash(key) + Toolkit.hash(salt + turn);
+
 
         if (success == Boolean.TRUE) {
 
@@ -555,7 +564,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * <p>
      * 移除一个节点
      *
-     * @note 删除需要带走该位置垃圾桶的一个垃圾对象, 就是把该位置的数组元素减一 todo
+     * @note 删除需要带走该位置垃圾桶的一个垃圾对象, 就是把该位置的数组元素减一
      */
     final Wrapper<K, V> removeNode(int hash, Object key, Object value, boolean matchValue, boolean movable) {
         Wrapper<K, V>[] tab;
