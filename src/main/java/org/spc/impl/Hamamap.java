@@ -6,6 +6,7 @@ import org.spc.api.IHamamap;
 import org.spc.api.IHamamapEx;
 import org.spc.tool.Constants;
 import org.spc.tool.Toolkit;
+import org.spc.tool.Wrapper;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -58,9 +59,9 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     /**
      * Hash Buckets
      * <p>
-     * 哈希桶数组
+     * 哈希桶数组 - 包装器实现
      */
-    transient HamaNode<K, V>[] table;
+    transient Wrapper<K, V>[] table;
     /**
      * Bucket Identifier
      * <p>
@@ -191,23 +192,23 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     }
 
 
-    final float loadFactor() {
+    final float getLoadFactor() {
         return loadFactor;
     }
 
-    final int initialRetry() {
+    final int getInitialRetry() {
         return initialRetry;
     }
 
-    final int maxRetry() {
+    final int getMaxRetry() {
         return maxRetry;
     }
 
-    final int maxTrash() {
+    final int getMaxTrash() {
         return maxTrash;
     }
 
-    final int capacity() {
+    final int getCapacity() {
         return (table != null) ? table.length : (threshold > 0) ? threshold : Constants.DEFAULT_INITIAL_CAPACITY;
     }
 
@@ -244,10 +245,14 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      */
     @Override
     public void clear() {
-        HamaNode<K, V>[] tab;
+        Wrapper<K, V>[] tab;
         if ((tab = table) != null && size > 0) {
             size = 0;
-            Arrays.fill(tab, null);
+            //需要对包装节点做处理
+            for (Wrapper<K, V> kvWrapper : tab) {
+                kvWrapper.setNode(null);
+                kvWrapper.setHashHelper(Constants.DEFAULT_HASH_HELPER_VALUE);
+            }
             int[] trash = trashTable;
             Arrays.fill(trash, 0);
         }
@@ -261,28 +266,34 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      *
      * @note 查询不做修改
      */
-    final HamaNode<K, V> getNode(Object key) {
-        HamaNode<K, V>[] tab;
-        HamaNode<K, V> first, e;
+    final Wrapper<K, V> getNode(Object key) {
+        Wrapper<K, V>[] tab;
+
+        Wrapper<K, V> first;
+        HamaNode<K, V> firstNode;
+
+        Wrapper<K, V> e;
+        HamaNode<K, V> eNode;
         int n, hash;
         K k;
 
         if ((tab = table) != null && (n = tab.length) > 0 && (first = tab[(n - 1) & (hash = Toolkit.hash(key))]) != null) {
-
+            //? 包装器处理
+            firstNode = first.getNode();
             // 总是检查第一个节点
-            if (first.hash == hash && ((k = first.key) == key || (key != null && key.equals(k)))) {
+            if (firstNode.hash == hash && ((k = firstNode.key) == key || (key != null && key.equals(k)))) {
                 return first;
             }
 
-            if ((e = first.next) != null) {
-                if (first instanceof HamaTreeNode<K, V>) {
-                    return ((HamaTreeNode<K, V>) first).getTreeNode(hash, key);
+            if ((eNode = firstNode.next) != null) {
+                if (firstNode instanceof HamaTreeNode<K, V>) {
+                    return ((HamaTreeNode<K, V>) firstNode).getTreeNode(hash, key);
                 }
                 do {
-                    if (e.hash == hash && ((k = e.key) == key || (key != null && key.equals(k)))) {
-                        return e;
+                    if (eNode.hash == hash && ((k = eNode.key) == key || (key != null && key.equals(k)))) {
+                        return eNode.getWrapper();
                     }
-                } while ((e = e.next) != null);
+                } while ((eNode = eNode.next) != null);
             }
         }
         return null;
@@ -297,8 +308,12 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * @note 插入时候要涉及到 "避让垃圾桶" 的逻辑 todo
      */
     final V putVal(int hash, K key, V value, int turn) {
-        HamaNode<K, V>[] tab;
-        HamaNode<K, V> p;
+        Wrapper<K, V>[] tab;
+        HamaNode<K, V>[] tabNode;
+
+        Wrapper<K, V> p;
+        HamaNode<K, V> pNode;
+
         int n, i;
 
         //如果哈希表为空, 或者长度为0, 就扩容
@@ -306,7 +321,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             n = (tab = resize()).length;
         }
 
-        //如果这个位置没有节点, 就直接插入, 不需要处理垃圾桶逻辑
+        //如果这个位置没有节点(Wrapper), 就直接插入, 不需要处理垃圾桶逻辑
         if ((p = tab[i = (n - 1) & hash]) == null) {
             tab[i] = newNode(hash, key, value, null);
         } else {
@@ -319,8 +334,6 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             // {Rehash}方案和{Wrapper}方案, 最终只能选择包装器方案修改节点的对象
 
 //            if (trashTable[i] > 0 && turn < maxRetry) {
-//                Random random = new Random();
-//                int newHash = random.nextInt();
 //                return putVal(newHash, key, value, turn + 1);
 //            }
 
@@ -399,7 +412,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      *
      * @note 扩容时, 按照逻辑讲, 应该暂时会变得宽敞起来, 因此我决定直接执行垃圾桶清空操作 (初始化长度)
      */
-    final HamaNode<K, V>[] resize() {
+    final Wrapper<K, V>[] resize() {
 
         HamaNode<K, V>[] oldTab = table;
         int oldCap = (oldTab == null) ? 0 : oldTab.length;
@@ -667,7 +680,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * 创建一个常规（非树）节点
      */
 
-    HamaNode<K, V> newNode(int hash, K key, V value, HamaNode<K, V> next) {
+    Wrapper<K, V> newNode(int hash, K key, V value, HamaNode<K, V> next) {
         return new HamaNode<>(hash, key, value, next);
     }
 
@@ -676,7 +689,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * <p>
      * 从树节点转换为普通节点
      */
-    HamaNode<K, V> replacementNode(HamaNode<K, V> p, HamaNode<K, V> next) {
+    Wrapper<K, V> replacementNode(HamaNode<K, V> p, HamaNode<K, V> next) {
         return new HamaNode<>(p.hash, p.key, p.value, next);
     }
 
@@ -685,7 +698,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * <p>
      * 创建一个树节点
      */
-    HamaTreeNode<K, V> newTreeNode(int hash, K key, V value, HamaNode<K, V> next) {
+    Wrapper<K, V> newTreeNode(int hash, K key, V value, HamaNode<K, V> next) {
         return new HamaTreeNode<>(hash, key, value, next);
     }
 
@@ -694,7 +707,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * <p>
      * 树化节点
      */
-    HamaTreeNode<K, V> replacementTreeNode(HamaNode<K, V> p, HamaNode<K, V> next) {
+    Wrapper<K, V> replacementTreeNode(HamaNode<K, V> p, HamaNode<K, V> next) {
         return new HamaTreeNode<>(p.hash, p.key, p.value, next);
     }
 
@@ -720,7 +733,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             return next != null;
         }
 
-        final HamaNode<K, V> nextNode() {
+        final Wrapper<K, V> nextNode() {
             HamaNode<K, V>[] t;
             HamaNode<K, V> e = next;
 

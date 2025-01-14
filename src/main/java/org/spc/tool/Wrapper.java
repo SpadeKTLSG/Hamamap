@@ -7,10 +7,11 @@ import org.spc.impl.HamaNode;
 import java.util.Objects;
 
 /**
+ * Wrapper Class, used to wrap HamaNode(TreeNode) object
+ * <p>
  * 包装器类, 用于包装HamaNode(TreeNode)对象
  *
- * @param <K>
- * @param <V>
+ * @note: 方法内部调用
  */
 @Getter
 @Setter
@@ -21,23 +22,24 @@ public class Wrapper<K, V> {
      * <p>
      * 包装的节点对象
      */
-    public HamaNode<K, V> node; //public 调试用
+    private HamaNode<K, V> node;
 
     /**
      * hashHelper
      * <p>
      * 哈希辅助值
      */
-    public int hashHelper;  //public 调试用
+    private int hashHelper;
 
 
     public Wrapper(HamaNode<K, V> node, int hashHelper) {
         this.node = node;
         this.hashHelper = hashHelper;
+        this.node.setWrapper(this);
     }
 
     public Wrapper(HamaNode<K, V> node) {
-        this(node, 1);
+        this(node, Constants.DEFAULT_HASH_HELPER_VALUE);
     }
 
 

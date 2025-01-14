@@ -13,16 +13,16 @@ public interface Constants {
     /**
      * Default initial retry
      * <p>
-     * 默认初始插入重试次数 = 2
+     * 默认初始插入重试次数 = 1
      */
-    int DEFAULT_INITIAL_RETRY = 2;
+    int DEFAULT_INITIAL_RETRY = 1;
 
     /**
      * Default max retry
      * <p>
-     * 默认最大重试次数 = 4
+     * 默认最大重试次数 = 3
      */
-    int DEFAULT_MAX_RETRY = 4;
+    int DEFAULT_MAX_RETRY = 3;
 
     /**
      * Default max trash (in bucket)
@@ -30,7 +30,12 @@ public interface Constants {
      * (桶内)默认最大垃圾数量 = 16
      */
     int DEFAULT_MAX_TRASH = 1 << 4; // aka 16
-
+    /**
+     * Default hash helper field value
+     * <p>
+     * 默认哈希辅助值
+     */
+    int DEFAULT_HASH_HELPER_VALUE = 1;
 
     //! Original
     /**

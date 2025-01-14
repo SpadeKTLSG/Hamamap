@@ -93,4 +93,21 @@ public interface Toolkit {
         wrapper.setNode(node);
     }
 
+    /**
+     * Type check
+     * <p>
+     * 类型检查
+     */
+    static boolean isWrapper(Object obj) {
+        return obj instanceof Wrapper;
+    }
+
+    /**
+     * Type check
+     * <p>
+     * 类型检查
+     */
+    static boolean isNode(Object obj) {
+        return obj instanceof HamaNode;
+    }
 }

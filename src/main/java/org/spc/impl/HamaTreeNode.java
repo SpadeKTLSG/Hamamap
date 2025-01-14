@@ -2,6 +2,7 @@ package org.spc.impl;
 
 
 import org.spc.tool.Constants;
+import org.spc.tool.Wrapper;
 
 import java.util.Objects;
 
@@ -377,7 +378,7 @@ public class HamaTreeNode<K, V> extends HamaNode<K, V> {
      * <p>
      * 调用根节点
      */
-    final HamaTreeNode<K, V> getTreeNode(int h, Object k) {
+    final Wrapper<K, V> getTreeNode(int h, Object k) {
         return ((parent != null) ? root() : this).find(h, k, null);
     }
 
