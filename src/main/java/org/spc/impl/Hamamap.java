@@ -701,12 +701,12 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
 //! 迭代器 内部类
 
     abstract class HamaIterator {
-        HamaNode<K, V> next;        // next entry to return 下一个要返回的条目
-        HamaNode<K, V> current;     // current entry    当前条目
+        Wrapper<K, V> next;        // next entry to return 下一个要返回的条目
+        Wrapper<K, V> current;     // current entry    当前条目
         int index;             // current slot    当前插槽
 
         HamaIterator() {
-            HamaNode<K, V>[] t = table;
+            Wrapper<K, V>[] t = table;
             current = next = null;
             index = 0;
             if (t != null && size > 0) { // advance to first entry  前进到第一个条目
@@ -720,13 +720,13 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         }
 
         final Wrapper<K, V> nextNode() {
-            HamaNode<K, V>[] t;
-            HamaNode<K, V> e = next;
+            Wrapper<K, V>[] t;
+            Wrapper<K, V> e = next;
 
             if (e == null) {
                 throw new NoSuchElementException();
             }
-            if ((next = (current = e).next) == null && (t = table) != null) {
+            if ((next = (current = e).getNode().next.getWrapper()) == null && (t = table) != null) {
                 do {
                 } while (index < t.length && (next = t[index++]) == null);
             }
@@ -734,31 +734,31 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         }
 
         public final void remove() {
-            HamaNode<K, V> p = current;
+            Wrapper<K, V> p = current;
             if (p == null) {
                 throw new IllegalStateException();
             }
             current = null;
-            removeNode(p.hash, p.key, null, false, false);
+            removeNode(p.getNode().hash, p.getNode().key, null, false, false);
 
         }
     }
 
     final class KeyIterator extends HamaIterator implements Iterator<K> {
         public K next() {
-            return nextNode().key;
+            return nextNode().getNode().key;
         }
     }
 
     final class ValueIterator extends HamaIterator implements Iterator<V> {
         public V next() {
-            return nextNode().value;
+            return nextNode().getNode().value;
         }
     }
 
     final class EntryIterator extends HamaIterator implements Iterator<IHamaEntryEx<K, V>> {
         public IHamaEntryEx<K, V> next() {
-            return nextNode();
+            return nextNode().getNode();
         }
     }
 
