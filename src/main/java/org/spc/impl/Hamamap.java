@@ -13,6 +13,7 @@ import java.io.Serializable;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.spc.tool.Constants.DEFAULT_INITIAL_CAPACITY;
 
@@ -285,45 +286,19 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * @note 查询需要从多个可能的位置寻找, 因此重试次数不能过多, 否则会导致性能问题
      */
     final Wrapper<K, V> getNode(Object key) {
-        Wrapper<K, V>[] tab;
 
-        Wrapper<K, V> first;
-        HamaNode<K, V> firstNode;
-
-        Wrapper<K, V> e;
-        HamaNode<K, V> eNode;
-        int n;
-        int hash;
-        K k;
-
-
-        //Todo 只给出一个Key, 但是真正存放的时候, 可能存在下面几个可能的位置是真正存放的地方:
+        //只给出一个Key, 但是真正存放的时候, 可能存在下面几个可能的位置是真正存放的地方:
         //hash =[ {key} + {hashHelper} * {0~maxRetry}]
         //因此要发起多线程查询, 以便找到真正的位置
 
-        //Todo 首先要计算出所有可能的位置:
-
         int testKeyHash = Toolkit.hash(key);
-        //Todo 1. 发起多线程查询, 使用线程池 + CountDownLatch等组件 2. 使用数组初始化为重试次数, 对每种情况进行探索
-        getNodeByHashThread(testKeyHash, key);
-
-        if ((tab = table) != null && (n = tab.length) > 0 && (first = tab[(n - 1) & (hash = Toolkit.hash(key))]) != null) {
-            //? 包装器处理
-            firstNode = first.getNode();
-            // 总是检查第一个节点
-            if (firstNode.hash == hash && ((k = firstNode.key) == key || (key != null && key.equals(k)))) {
-                return first;
-            }
-
-            if ((eNode = firstNode.next) != null) {
-                do {
-                    if (eNode.hash == hash && ((k = eNode.key) == key || (key != null && key.equals(k)))) {
-                        return eNode.getWrapper();
-                    }
-                } while ((eNode = eNode.next) != null);
-            }
+        if (Constants.USE_THREAD) {
+            return getNodeByHash(testKeyHash, key);
+        } else {
+            return getNodeByHashThread(testKeyHash, key);
         }
-        return null;
+
+
     }
 
 
@@ -331,23 +306,31 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * 处理轮询式查询
      */
     private Wrapper<K, V> getNodeByHash(int hash, Object key) {
+        int salt = Toolkit.hash(Constants.DEFAULT_HASH_HELPER_VALUE);
+        //使用数组初始化为重试次数, 对每种情况进行探索
+
 
     }
 
     /**
+     * handle multi-threaded query
+     * <p>
      * 处理多线程式查询
+     *
+     * @note 不推荐使用, 仅供调试
      */
     private Wrapper<K, V> getNodeByHashThread(int rawHash, Object key) {
         int salt = Toolkit.hash(Constants.DEFAULT_HASH_HELPER_VALUE);
+
+        //通过线程池进行多线程查询, 最后CountdownLatch等待所有线程结束后汇总结果
         ExecutorService executor = Toolkit.CACHE_REBUILD_EXECUTOR;
         CountDownLatch countDownLatch = new CountDownLatch(maxRetry); //3 times retrys, means 4 threads to find the key's possible position
-        List<Wrapper<K, V>> res = new ArrayList<>();
-        //通过线程池进行多线程查询, 最后CountdownLatch等待所有线程结束后汇总结果
+        List<Wrapper<K, V>> res = new ArrayList<>(); //处理查询(以防万一出来多个位置) <- 调试用, 未来可直接返回
+        AtomicReference<Wrapper<K, V>> result = new AtomicReference<>();
 
         for (int i = 0; i < maxRetry; i++) {
             int finalI = i;
             executor.execute(() -> {
-                //处理查询
                 res.add(getRealNode(rawHash + salt * finalI, key));
                 countDownLatch.countDown();
             });
@@ -355,12 +338,12 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         executor.submit(() -> {
             try {
                 countDownLatch.await();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+                //找到第一个非空的结果
+                result.set(res.stream().filter(Objects::nonNull).findFirst().orElse(null));
+            } catch (InterruptedException ignored) {
             }
         });
-
-
+        return result.get();
     }
 
     /**
@@ -368,7 +351,32 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * <p>
      * 通过确定的hash值获取真实节点
      */
-    private Wrapper<K, V> getRealNode(int i, Object key) {
+    private Wrapper<K, V> getRealNode(int realHash, Object key) {
+        Wrapper<K, V>[] tab;
+
+        Wrapper<K, V> first;
+
+        Wrapper<K, V> e;
+        int n;
+        K k;
+
+        if ((tab = table) != null && (n = tab.length) > 0 && (first = tab[(n - 1) & realHash]) != null) {
+            //? 包装器处理:
+            //! 正确判断节点的真实Hash值方法, 是通过包装器对象.hashCode()方法获取
+            if (first.hashCode() == realHash && ((k = first.getNode().key) == key || (key != null && key.equals(k)))) {
+                return first;
+            }
+
+            //遍历桶中的链表
+            if ((e = first.getNode().next.getWrapper()) != null) {
+                do {
+                    if (e.hashCode() == realHash && ((k = e.getNode().key) == key || (key != null && key.equals(k)))) {
+                        return e;
+                    }
+                } while ((e = e.getNode().next.getWrapper()) != null);
+            }
+        }
+        return null;
     }
 
 

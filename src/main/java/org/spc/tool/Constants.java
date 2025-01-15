@@ -79,4 +79,11 @@ public interface Constants {
      */
     int THREAD_KEEPALIVE_TIME = 1;
 
+    /**
+     * Use thread or not (for query)
+     * <p>
+     * 是否使用多线程 (发起查询)
+     */
+    boolean USE_THREAD = false;
+
 }
