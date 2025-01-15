@@ -38,6 +38,7 @@ public class Wrapper<K, V> {
         this.node.setWrapper(this);
     }
 
+    @Deprecated
     public Wrapper(HamaNode<K, V> node) {
         this(node, Constants.DEFAULT_HASH_HELPER_VALUE);
     }

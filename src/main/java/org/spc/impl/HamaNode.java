@@ -10,13 +10,11 @@ import java.util.Objects;
  * HamaNode
  * <p>
  * Hamamap的简单节点
+ *
+ * @note Hash计算被节点包装代理
  */
 public class HamaNode<K, V> implements IHamaEntryEx<K, V> {
 
-    /**
-     * The hash
-     */
-    final int hash;
     /**
      * The key
      */
@@ -39,8 +37,7 @@ public class HamaNode<K, V> implements IHamaEntryEx<K, V> {
      */
     HamaNode<K, V> next;
 
-    public HamaNode(int hash, K key, V value, HamaNode<K, V> next) {
-        this.hash = hash;
+    public HamaNode(K key, V value, HamaNode<K, V> next) {
         this.key = key;
         this.value = value;
         this.next = next;

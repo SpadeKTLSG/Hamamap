@@ -242,7 +242,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     public V put(K key, V value) {
         //采用试探的方式, 通过hash值和默认的hash盐值进行和. 到时候可以还原并采用别的Hash来改变位置
         int testHash = Toolkit.hash(key) + Toolkit.hash(Constants.DEFAULT_HASH_HELPER_VALUE);
-        return putVal(testHash, key, value);
+        return putVal(testHash, onlyHash, key, value);
     }
 
 
@@ -387,12 +387,12 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * <p>
      * 插入一个KV - 主方法
      *
+     * @param testHash 试探的Hash值
      * @note 插入时候要涉及到 "避让垃圾桶" 的逻辑
      */
-    final V putVal(int hash, K key, V value) {
+    final V putVal(int testHash, K key, V value) {
         Wrapper<K, V>[] tab; //本地哈希表引用
         Wrapper<K, V> p; //当前位置的包装器
-        HamaNode<K, V> pNode; //当前位置的节点
 
 
         int n; // 记录哈希表的长度length
@@ -403,9 +403,9 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             n = (tab = resize()).length;
         }
 
-        //! 如果这个位置没有节点(Wrapper) - 意味着没有垃圾直接短路, 就直接插入, 不需要处理垃圾桶逻辑
-        if ((p = tab[i = (n - 1) & hash]) == null) {
-            tab[i] = newNode(hash, key, value, null);
+        //! 如果这个位置没有节点(Wrapper) - 意味着没有垃圾直接插入, 不需要处理垃圾桶逻辑
+        if ((p = tab[i = (n - 1) & testHash]) == null) {
+            tab[i] = newNode(testHash, key, value, null);
 
             if (++size > threshold) {
                 resize();
@@ -457,6 +457,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      *
      * @param turn 插入次数, 初始为0
      * @param salt 当前需要设置的
+     * @note 未来可以做非递归的实现, 仿照上面的查询
      */
     private V putValRetry(int hash, K key, V value, int turn, int salt, Boolean success) {
         //失败插入, 需要改变hash进行插入. 使用盐进行重新计算位置
@@ -478,6 +479,18 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         }
 
 
+    }
+
+
+    /**
+     * Create a regular (non-tree) node
+     * <p>
+     * 创建一个常规（非树）节点
+     *
+     * @note hash已经被提升到了包装类中, 节点的hash尽量不要用
+     */
+    Wrapper<K, V> newNode(int hash, K key, V value, HamaNode<K, V> next) {
+        return new Wrapper<>(new HamaNode<>(key, value, next), hash);
     }
 
 
@@ -524,7 +537,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * @note 扩容时, 按照逻辑讲, 应该暂时会变得宽敞起来, 因此我决定直接执行垃圾桶清空操作 (初始化长度)
      */
     final Wrapper<K, V>[] resize() {
-
+        //todo Wrapper 适配Hash, 不要用节点的hash!!!!!!!
         Wrapper<K, V>[] oldTab = table;
         int oldCap = (oldTab == null) ? 0 : oldTab.length;
         int oldThr = threshold;
@@ -626,6 +639,8 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * @note 删除需要带走该位置垃圾桶的一个垃圾对象, 就是把该位置的数组元素减一
      */
     final Wrapper<K, V> removeNode(int hash, Object key, Object value, boolean matchValue) {
+
+        //todo Wrapper 适配Hash, 不要用节点的hash!!!!!!!
         Wrapper<K, V>[] tab;
         Wrapper<K, V> p;
         HamaNode<K, V> pNode;
@@ -751,20 +766,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     }
 
 
-    //!  节点相关
-
-    /**
-     * Create a regular (non-tree) node
-     * <p>
-     * 创建一个常规（非树）节点
-     */
-
-    Wrapper<K, V> newNode(int hash, K key, V value, HamaNode<K, V> next) {
-        return new Wrapper<>(new HamaNode<>(hash, key, value, next));
-    }
-
-
-//! 迭代器 内部类
+    //! 迭代器 内部类
 
     abstract class HamaIterator {
         Wrapper<K, V> next;        // next entry to return 下一个要返回的条目
