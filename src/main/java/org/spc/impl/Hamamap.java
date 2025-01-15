@@ -82,7 +82,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     /**
      * The number of KVs
      * <p>
-     * 键值对的数量
+     * 键值对的数量 (实际大小)
      */
     transient int size;
 
@@ -255,8 +255,8 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     @Override
     public V remove(Object key) {
         Wrapper<K, V> e;
-        int testKeyHash = Toolkit.hash(key);
-        return (e = removeNode(testKeyHash, key, null, false)) == null ? null : e.getNode().getValue();
+        int testHash = Toolkit.hash(key) + Toolkit.hash(Constants.DEFAULT_HASH_HELPER_VALUE);
+        return (e = removeNode(testHash, key)) == null ? null : e.getNode().getValue();
     }
 
     /**
@@ -553,16 +553,15 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * <p>
      * 当达到给定容量时重新哈希Hamamap table
      *
-     * @note 扩容时, 按照逻辑讲, 应该暂时会变得宽敞起来, 因此我决定直接执行垃圾桶清空操作 (初始化长度)
+     * @note 扩容时, 按照逻辑讲, 应该暂时会变得宽敞起来, 因此我决定直接执行垃圾桶清空操作 (初始化长度), 暂时不搬运了
      */
     final Wrapper<K, V>[] resize() {
-        //todo Wrapper 适配Hash, 不要用节点的hash!!!!!!!
         Wrapper<K, V>[] oldTab = table;
         int oldCap = (oldTab == null) ? 0 : oldTab.length;
         int oldThr = threshold;
         int newCap, newThr = 0;
 
-        //如果旧容量大于0
+
         if (oldCap > 0) {
             if (oldCap >= Constants.MAXIMUM_CAPACITY) {
                 threshold = Integer.MAX_VALUE;
@@ -591,55 +590,59 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         trashTable = new int[newCap];
         Arrays.fill(trashTable, 0); //赋值垃圾桶全为0
 
-        //如果旧表不为空, 要就把旧表的节点重新插入到新表中
+
         if (oldTab == null) {
             return newTab;
         }
 
-        //遍历旧表
+        //如果旧表不为空, 要就把旧表的节点重新插入到新表中, 注意Hash计算处理
         for (int j = 0; j < oldCap; ++j) {
-            HamaNode<K, V> e;
+            Wrapper<K, V> e;
 
-            if ((e = oldTab[j].getNode()) == null) { //如果这个位置没有节点, 就跳过
+            if ((e = oldTab[j]) == null) { //如果旧表这个桶位置没有节点, 就跳过
                 continue;
             }
 
-            oldTab[j] = null;
+            oldTab[j] = null; //释放旧表的桶位置
 
-            if (e.next == null) { //如果这个位置只有一个节点, 就直接插入
-                newTab[e.hash & (newCap - 1)] = new Wrapper<>(e, e.getWrapper().getHashHelper());
-            } else { // 遍历链表, 重新插入
-                HamaNode<K, V> loHead = null, loTail = null;
-                HamaNode<K, V> hiHead = null, hiTail = null;
-                HamaNode<K, V> next;
+            if (e.getNode().next == null) { //如果这个位置只有一个节点, 就直接插入
+                newTab[e.hashCode() & (newCap - 1)] = new Wrapper<>(e); //保留原来的包装器参数
 
+            } else { // 这个位置有多节点
+                Wrapper<K, V> loHead = null, loTail = null;
+                Wrapper<K, V> hiHead = null, hiTail = null;
+                Wrapper<K, V> next;
+
+                //遍历这个桶中的节点
                 do {
-                    next = e.next;
-                    if ((e.hash & oldCap) == 0) {
+                    next = e.getNode().next.getWrapper();
+                    if ((e.hashCode() & oldCap) == 0) { //如果hash值不变, 就插入到原来的位置
                         if (loTail == null) {
                             loHead = e;
                         } else {
-                            loTail.next = e;
+                            loTail.getNode().next = e.getNode();
                         }
                         loTail = e;
                     } else {
                         if (hiTail == null) {
                             hiHead = e;
                         } else {
-                            hiTail.next = e;
+                            hiTail.getNode().next = e.getNode();
                         }
                         hiTail = e;
                     }
                 } while ((e = next) != null);
 
+                //如果低位链表不为空, 就插入到新表中
                 if (loTail != null) {
-                    loTail.next = null;
-                    newTab[j] = loHead.getWrapper();
+                    loTail.getNode().next = null;
+                    newTab[j] = loHead;
                 }
 
+                //如果高位链表不为空, 就插入到新表中
                 if (hiTail != null) {
-                    hiTail.next = null;
-                    newTab[j + oldCap] = hiHead.getWrapper();
+                    hiTail.getNode().next = null;
+                    newTab[j + oldCap] = hiHead;
                 }
 
             }
@@ -657,45 +660,55 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      *
      * @note 删除需要带走该位置垃圾桶的一个垃圾对象, 就是把该位置的数组元素减一
      */
-    final Wrapper<K, V> removeNode(int hash, Object key, Object value, boolean matchValue) {
+    final Wrapper<K, V> removeNode(int testHash, Object key) {
+        Wrapper<K, V> p; //该桶位置的包装器头
+        Wrapper<K, V> nodeWrapper;
+        int index; //本次试探的位置
 
-        //todo Wrapper 适配Hash, 不要用节点的hash!!!!!!!
-        Wrapper<K, V>[] tab;
-        Wrapper<K, V> p;
-        HamaNode<K, V> pNode;
-        int n, index;
-
-        if ((tab = table) != null && (n = tab.length) > 0 && (p = tab[index = (n - 1) & hash]) != null) {
-
-            HamaNode<K, V> node = null;
-            HamaNode<K, V> e;
-            K k;
-            V v;
-
-            if (p.getNode().hash == hash && ((k = p.getNode().getKey()) == key || (key != null && key.equals(k)))) {
-                node = p.getNode();
-            } else if ((e = p.next) != null) {
-
-                do {
-                    if (e.hash == hash && ((k = e.key) == key || (key != null && key.equals(k)))) {
-                        node = e;
-                        break;
-                    }
-                    p = e;
-                } while ((e = e.next) != null);
-
-            }
-            if (node != null && (!matchValue || (v = node.value) == value || (value != null && value.equals(v)))) {
-                if (node == p) {
-                    tab[index] = node.next;
-                } else {
-                    p.next = node.next;
-                }
-                --size;
-                return node;
-            }
+        if (table == null || size == 0 || table.length == 0) { //合法性检查
+            return null;
         }
-        return null;
+        if ((p = table[index = (table.length - 1) & testHash]) == null) { //这个桶位置没有节点
+            return null;
+        }
+
+
+        //查找节点 -  ///////////////////
+
+        //TODO 找节点需要多次找
+        //todo Wrapper 适配Hash, 不要用节点的hash!!!!!!!
+
+        Wrapper<K, V> e;
+        K k;
+        if (p.getNode().hash == testHash && ((k = p.getNode().getKey()) == key || (key != null && key.equals(k)))) {
+            nodeWrapper = p.getNode();
+        } else if ((e = p.next) != null) {
+
+            do {
+                if (e.hash == testHash && ((k = e.key) == key || (key != null && key.equals(k)))) {
+                    nodeWrapper = e;
+                    break;
+                }
+                p = e;
+            } while ((e = e.next) != null);
+
+        }
+
+        ///////////////////
+
+        if (nodeWrapper == null) { //没找到哦
+            return null;
+        }
+
+
+        if (nodeWrapper == p) { //如果是头节点
+            table[index] = nodeWrapper.getNode().next.getWrapper();
+        } else { //如果不是头节点, 使用前驱节点短路之
+            p.getNode().next = nodeWrapper.getNode().next;
+        }
+
+        --size;
+        return nodeWrapper;
     }
 
 

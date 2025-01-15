@@ -32,6 +32,10 @@ public class Wrapper<K, V> {
     private int hashHelper;
 
 
+    public Wrapper(Wrapper<K, V> wrapper) {
+        this(wrapper.node, wrapper.hashHelper);
+    }
+
     public Wrapper(HamaNode<K, V> node, int hashHelper) {
         this.node = node;
         this.hashHelper = hashHelper;
