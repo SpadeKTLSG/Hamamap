@@ -371,6 +371,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             }
 
             //遍历桶中的链表
+            // todo  org.spc.tool.Wrapper.getNode().next" is null
             if ((e = first.getNode().next.getWrapper()) != null) {
                 do {
                     if (e.hashCode() == realHash && ((k = e.getNode().key) == key || (key != null && key.equals(k)))) {
@@ -472,6 +473,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             //一旦进行了遍历, 就要处理垃圾桶关系
             for (; ; ) {
                 //如果下一个节点为空, 就直接插入
+                //todo  "org.spc.tool.Wrapper.getNode().next" is null
                 if ((e = p.getNode().next.getWrapper()) == null) {//如果下一个节点为空, 就直接插入
                     p.getNode().next = newNode(realHash, key, value, null).getNode(); //维护关系
                     break;
