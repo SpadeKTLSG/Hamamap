@@ -404,6 +404,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         //! 如果这个位置没有节点(Wrapper) - 意味着没有垃圾直接插入, 不需要处理垃圾桶逻辑
         if ((p = tab[i = (n - 1) & testHash]) == null) {
             tab[i] = newNode(testHash, key, value, null);
+            //维护链关系: 不需要
 
             if (++size > threshold) {
                 resize();
@@ -454,39 +455,48 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
 
     /**
      * Use specified hash to insert into the corresponding p's sequence area
-     * <p>
-     * 采用指定的hash值插入对应p的序列区域
+     *
+     * @param p 对应桶的初始化位置的包装器对象
+     *          <p>
+     *          采用指定的hash值插入对应p的序列区域
      */
     private V putValbyHash(int realHash, Wrapper<K, V> p, K key, V value) {
-        //todo Wrapper 适配Hash, 不要用节点的hash!!!!!!!
-        //todo 垃圾桶逻辑
 
         Wrapper<K, V> e; //临时位置包装器
         K k; //临时键
-        if ((pNode = p.getNode()).hash == hash && ((k = pNode.key) == key || (key != null && key.equals(k)))) {
-            e = p;
+
+        if (p.hashCode() == realHash && ((k = p.getNode().key) == key || (key != null && key.equals(k)))) {
+            e = p; //如果对象节点的hash值和key值相同, 就直接赋值
+            //由于是取代, 不进行垃圾桶处理
         } else {
+            //一旦进行了遍历, 就要处理垃圾桶关系
             for (; ; ) {
-                if ((e = p.next) == null) {
-                    p.next = newNode(hash, key, value, null);
+                //如果下一个节点为空, 就直接插入
+                if ((e = p.getNode().next.getWrapper()) == null) {//如果下一个节点为空, 就直接插入
+                    p.getNode().next = newNode(realHash, key, value, null).getNode(); //维护关系
                     break;
                 }
-                //如果找到了相同的键, 就直接跳出
-                if (e.hash == hash && ((k = e.key) == key || (key != null && key.equals(k)))) {
+                //如果下一个节点不为空, 就继续遍历; 如果找到相同的key, 就直接替换
+                if (e.hashCode() == realHash && ((k = e.getNode().key) == key || (key != null && key.equals(k)))) {
                     break;
                 }
-                p = e;
+                p = e; //前进
             }
+            //?在当前hashTable对应的位置的垃圾桶中增加一个垃圾
+            trashTable[(table.length - 1) & realHash] += 1;
         }
+
         if (e != null) { //如果对应位置的对象不为空即为 找到了相同的键, 就直接替换值
-            V oldValue = e.value;
-            e.value = value;
+            V oldValue = e.getNode().value;
+            e.getNode().value = value;
             return oldValue;
         }
 
         if (++size > threshold) {
             resize();
         }
+
+        return null; //返回空, 说明插入成功并且没有替换
     }
 
 
