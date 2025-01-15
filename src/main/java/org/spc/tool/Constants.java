@@ -37,6 +37,35 @@ public interface Constants {
      */
     int DEFAULT_HASH_HELPER_VALUE = 1;
 
+    /**
+     * Default hash helper field value grow
+     * <p>
+     * 默认哈希辅助值增长
+     */
+    int DEFAULT_HASH_HELPER_VALUE_GROW = 8;
+
+    /**
+     * The maximum length of queue in thread pool
+     * <p>
+     * 线程池队列最大长度
+     */
+    int MAX_THREAD_QUEUE_SIZE = 2048;
+
+    /**
+     * The alive time of thread pool's thread
+     * <p>
+     * 线程池线程生存时间
+     */
+    int THREAD_KEEPALIVE_TIME = 1;
+
+    /**
+     * Use thread or not (for query)
+     * <p>
+     * 是否使用多线程 (发起查询)
+     */
+    boolean USE_THREAD = false;
+
+
     //! Original
     /**
      * Default initial capacity - MUST be a power of two
@@ -64,26 +93,5 @@ public interface Constants {
      */
     float DEFAULT_LOAD_FACTOR = 0.75f; // aka ((75%)=> resize)
 
-
-    /**
-     * The maximum length of queue in thread pool
-     * <p>
-     * 线程池队列最大长度
-     */
-    int MAX_THREAD_QUEUE_SIZE = 2048;
-
-    /**
-     * The alive time of thread pool's thread
-     * <p>
-     * 线程池线程生存时间
-     */
-    int THREAD_KEEPALIVE_TIME = 1;
-
-    /**
-     * Use thread or not (for query)
-     * <p>
-     * 是否使用多线程 (发起查询)
-     */
-    boolean USE_THREAD = false;
 
 }

@@ -242,7 +242,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     public V put(K key, V value) {
         //采用试探的方式, 通过hash值和默认的hash盐值进行和. 到时候可以还原并采用别的Hash来改变位置
         int testHash = Toolkit.hash(key) + Toolkit.hash(Constants.DEFAULT_HASH_HELPER_VALUE);
-        return putVal(testHash, onlyHash, key, value);
+        return putVal(testHash, key, value);
     }
 
 
@@ -393,8 +393,6 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     final V putVal(int testHash, K key, V value) {
         Wrapper<K, V>[] tab; //本地哈希表引用
         Wrapper<K, V> p; //当前位置的包装器
-
-
         int n; // 记录哈希表的长度length
         int i; // 记录哈希表的位置sit
 
@@ -413,18 +411,58 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             return null;
         }
 
-        //! 否则就要处理垃圾桶逻辑:
-        Wrapper<K, V> e; //临时位置包装器
-        K k; //临时键
+        //! 否则就要处理垃圾桶逻辑
         Boolean success = Boolean.FALSE; //记录是否插入成功
-        // 当插入并且当前位置的垃圾桶存在垃圾(int[now] > 0)时, 就要开始执行递归重新插入, 用turn代表插入次数
-        //改变hash实现修改插入位置:此时节点还未初始化, 因此需要手动提前处理hash盐, 初始为 1 + 8
-        V tempV = putValRetry(hash, key, value, 0, Constants.DEFAULT_HASH_HELPER_VALUE, success);
-        if (success) { //子方法插入成功
+        //当插入并且当前位置的垃圾桶存在垃圾(int[now] > 0)时, 就要开始执行递归重新插入, 用turn代表插入次数
+        //改变hash实现修改插入位置: 此时节点还未初始化, 因此需要手动提前处理hash盐, 初始为 1 + 8(一次增长)
+        int newTestHash = Toolkit.hash(key) + Toolkit.hash(Constants.DEFAULT_HASH_HELPER_VALUE + Constants.DEFAULT_HASH_HELPER_VALUE_GROW);
+        V tempV = putValRetry(newTestHash, key, value, 1, success);
+        if (success) { //子方法重试插入成功
             return tempV;
+        }
+        return putValbyHash(testHash, p, key, value);//重试失败, 仍然正常插入初始位置 (testHash)
+    }
+
+
+    /**
+     * 处理插入的递归调用方法
+     *
+     * @param turn 插入次数, 初始为0
+     * @note 未来可以做非递归的实现, 仿照上面的查询
+     */
+    private V putValRetry(int nowHash, K key, V value, int turn, Boolean success) {
+        //todo Wrapper 适配Hash, 不要用节点的hash!!!!!!!
+        //todo 垃圾桶逻辑
+
+        //失败插入, 需要改变hash进行插入. 使用盐进行重新计算位置: 将turn * 基础参数做成 盐 混合形成新的hash值
+
+
+        if (success == Boolean.TRUE) {
+
+        }
+        //否则, 判断能否再次插入: 初始重试和最大重试, 使用的Hash盐剧烈性不同
+        else if (turn < initialRetry) {
+
+        } else if (turn < maxRetry) {
+
+        } else { //失败, 就在这里插入吧,
+//                trashTable[thistable.sit] +=1;
         }
 
 
+    }
+
+    /**
+     * Use specified hash to insert into the corresponding p's sequence area
+     * <p>
+     * 采用指定的hash值插入对应p的序列区域
+     */
+    private V putValbyHash(int realHash, Wrapper<K, V> p, K key, V value) {
+        //todo Wrapper 适配Hash, 不要用节点的hash!!!!!!!
+        //todo 垃圾桶逻辑
+
+        Wrapper<K, V> e; //临时位置包装器
+        K k; //临时键
         if ((pNode = p.getNode()).hash == hash && ((k = pNode.key) == key || (key != null && key.equals(k)))) {
             e = p;
         } else {
@@ -449,36 +487,6 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         if (++size > threshold) {
             resize();
         }
-        return null;
-    }
-
-    /**
-     * 处理插入的递归调用方法
-     *
-     * @param turn 插入次数, 初始为0
-     * @param salt 当前需要设置的
-     * @note 未来可以做非递归的实现, 仿照上面的查询
-     */
-    private V putValRetry(int hash, K key, V value, int turn, int salt, Boolean success) {
-        //失败插入, 需要改变hash进行插入. 使用盐进行重新计算位置
-
-        //将turn * 基础参数做成 盐 混合形成新的hash值
-        int testHash = Toolkit.hash(key) + Toolkit.hash(salt + turn);
-
-
-        if (success == Boolean.TRUE) {
-
-        }
-        //否则, 判断能否再次插入: 初始重试和最大重试, 使用的Hash盐剧烈性不同
-        else if (turn < initialRetry) {
-
-        } else if (turn < maxRetry) {
-
-        } else { //失败, 就在这里插入吧,
-//                trashTable[thistable.sit] +=1;
-        }
-
-
     }
 
 
@@ -522,8 +530,9 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         for (IHamaEntryEx<? extends K, ? extends V> e : m.entrySet()) {
             K key = e.getKey();
             V value = e.getValue();
+            int testHash = Toolkit.hash(key) + Toolkit.hash(Constants.DEFAULT_HASH_HELPER_VALUE);
             //这里同样通过hash值和默认的hash盐值进行和, 同样走试探的方法, 以便还原
-            putVal(Toolkit.hash(key), key, value);
+            putVal(testHash, key, value);
         }
 
     }
