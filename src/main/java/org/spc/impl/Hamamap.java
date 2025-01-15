@@ -432,25 +432,26 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * @note 未来可以做非递归的实现, 仿照上面的查询
      */
     private V putValRetry(int nowHash, K key, V value, int turn, Boolean success) {
-        //todo Wrapper 适配Hash, 不要用节点的hash!!!!!!!
-        //todo 垃圾桶逻辑
-
         //失败插入, 需要改变hash进行插入. 使用盐进行重新计算位置: 将turn * 基础参数做成 盐 混合形成新的hash值
+        int i;
 
+        if (turn < initialRetry || turn < maxRetry) { //判断能否再次插入: 初始重试和最大重试, 使用的Hash盐剧烈性可以设置为不同 (未来)
 
-        if (success == Boolean.TRUE) {
-
+            if (table[i = (table.length - 1) & nowHash] == null) { //如果这个位置没有节点(Wrapper) - 意味着没有垃圾直接插入, 不需要处理垃圾桶逻辑
+                table[i] = newNode(nowHash, key, value, null);
+                //维护链关系: 不需要
+                if (++size > threshold) {
+                    resize();
+                }
+                success = Boolean.TRUE;
+                return null;
+            }
+            //改变hash重新试探
+            int newTestHash = Toolkit.hash(key) + Toolkit.hash(Constants.DEFAULT_HASH_HELPER_VALUE + Constants.DEFAULT_HASH_HELPER_VALUE_GROW * turn);
+            return putValRetry(newTestHash, key, value, turn + 1, success);
         }
-        //否则, 判断能否再次插入: 初始重试和最大重试, 使用的Hash盐剧烈性不同
-        else if (turn < initialRetry) {
 
-        } else if (turn < maxRetry) {
-
-        } else { //失败, 就在这里插入吧,
-//                trashTable[thistable.sit] +=1;
-        }
-
-
+        return null;
     }
 
     /**
