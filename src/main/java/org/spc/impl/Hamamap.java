@@ -283,33 +283,34 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * <p>
      * 通过键获取一个节点
      *
-     * @note 查询需要从多个可能的位置寻找, 因此重试次数不能过多, 否则会导致性能问题
+     * @note 只给出一个Key, 但是真正存放的时候, 可能存在下面几个可能的位置是真正存放的地方:
+     * hash =[ {key} + {hashHelper} * {0~maxRetry}]; 因此要发起多次查询, 以便找到真正的位置
      */
     final Wrapper<K, V> getNode(Object key) {
-
-        //只给出一个Key, 但是真正存放的时候, 可能存在下面几个可能的位置是真正存放的地方:
-        //hash =[ {key} + {hashHelper} * {0~maxRetry}]
-        //因此要发起多线程查询, 以便找到真正的位置
-
         int testKeyHash = Toolkit.hash(key);
         if (Constants.USE_THREAD) {
-            return getNodeByHash(testKeyHash, key);
-        } else {
             return getNodeByHashThread(testKeyHash, key);
+        } else {
+            return getNodeByHash(testKeyHash, key); //normal
         }
-
-
     }
 
 
     /**
+     * Get a node by hash
+     * <p>
      * 处理轮询式查询
      */
     private Wrapper<K, V> getNodeByHash(int hash, Object key) {
         int salt = Toolkit.hash(Constants.DEFAULT_HASH_HELPER_VALUE);
         //使用数组初始化为重试次数, 对每种情况进行探索
-
-
+        for (int i = 0; i < maxRetry; i++) {
+            Wrapper<K, V> res = getRealNode(hash + salt * i, key);
+            if (res != null) {
+                return res;
+            }
+        }
+        return null;
     }
 
     /**
@@ -550,8 +551,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         }
 
         threshold = newThr; //更新阈值
-        @SuppressWarnings({"unchecked"})
-        Wrapper<K, V>[] newTab = (Wrapper<K, V>[]) new Wrapper[newCap];
+        @SuppressWarnings({"unchecked"}) Wrapper<K, V>[] newTab = (Wrapper<K, V>[]) new Wrapper[newCap];
         table = newTab;
 
         //摆好垃圾桶
