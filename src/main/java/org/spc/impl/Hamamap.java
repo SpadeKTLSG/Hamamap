@@ -254,7 +254,8 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     @Override
     public V remove(Object key) {
         Wrapper<K, V> e;
-        return (e = removeNode(Toolkit.hash(key), key, null, false)) == null ? null : e.getNode().getValue();
+        int testKeyHash = Toolkit.hash(key);
+        return (e = removeNode(testKeyHash, key, null, false)) == null ? null : e.getNode().getValue();
     }
 
     /**
@@ -688,13 +689,10 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
                 return candidate != null && candidate.getNode().equals(e);
             }
 
+            @Deprecated
             public boolean remove(Object o) {
-                if (o instanceof IHamaEntryEx<?, ?> e) {
-                    Object key = e.getKey();
-                    Object value = e.getValue();
-                    return removeNode(Toolkit.hash(key), key, value, true) != null;
-                }
-                return false;
+                //暂时关闭
+                throw new UnsupportedOperationException();
             }
 
         }) : es;
@@ -801,14 +799,10 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             return e;
         }
 
+        @Deprecated
         public final void remove() {
-            Wrapper<K, V> p = current;
-            if (p == null) {
-                throw new IllegalStateException();
-            }
-            current = null;
-            removeNode(p.getNode().hash, p.getNode().key, null, false);
-
+            //暂时关闭
+            throw new UnsupportedOperationException();
         }
     }
 
