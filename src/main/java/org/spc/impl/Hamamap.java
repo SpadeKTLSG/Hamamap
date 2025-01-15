@@ -673,33 +673,11 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         }
 
 
-        //查找节点 -  ///////////////////
-
-        //TODO 找节点需要多次找
-        //todo Wrapper 适配Hash, 不要用节点的hash!!!!!!!
-
-        Wrapper<K, V> e;
-        K k;
-        if (p.getNode().hash == testHash && ((k = p.getNode().getKey()) == key || (key != null && key.equals(k)))) {
-            nodeWrapper = p.getNode();
-        } else if ((e = p.next) != null) {
-
-            do {
-                if (e.hash == testHash && ((k = e.key) == key || (key != null && key.equals(k)))) {
-                    nodeWrapper = e;
-                    break;
-                }
-                p = e;
-            } while ((e = e.next) != null);
-
-        }
-
-        ///////////////////
-
+        //查找节点 - 直接调用查询方法
+        nodeWrapper = getNode(key);
         if (nodeWrapper == null) { //没找到哦
             return null;
         }
-
 
         if (nodeWrapper == p) { //如果是头节点
             table[index] = nodeWrapper.getNode().next.getWrapper();
