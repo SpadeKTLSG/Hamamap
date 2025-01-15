@@ -65,4 +65,18 @@ public interface Constants {
     float DEFAULT_LOAD_FACTOR = 0.75f; // aka ((75%)=> resize)
 
 
+    /**
+     * The maximum length of queue in thread pool
+     * <p>
+     * 线程池队列最大长度
+     */
+    int MAX_THREAD_QUEUE_SIZE = 2048;
+
+    /**
+     * The alive time of thread pool's thread
+     * <p>
+     * 线程池线程生存时间
+     */
+    int THREAD_KEEPALIVE_TIME = 1;
+
 }

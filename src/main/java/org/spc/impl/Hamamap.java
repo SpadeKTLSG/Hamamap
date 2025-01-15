@@ -11,6 +11,8 @@ import org.spc.tool.Wrapper;
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.*;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 
 import static org.spc.tool.Constants.DEFAULT_INITIAL_CAPACITY;
 
@@ -41,7 +43,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     /**
      * Default max insert retry
      * <p>
-     * 默认初始插入重试次数
+     * 默认初始插入重试次数 (未来可以扩展, 现在没啥用)
      */
     final int initialRetry;
     /**
@@ -301,9 +303,9 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
 
         //Todo 首先要计算出所有可能的位置:
 
-        hash = Toolkit.hash()
+        int testKeyHash = Toolkit.hash(key);
         //Todo 1. 发起多线程查询, 使用线程池 + CountDownLatch等组件 2. 使用数组初始化为重试次数, 对每种情况进行探索
-        getNodeByHashThread(hash, key);
+        getNodeByHashThread(testKeyHash, key);
 
         if ((tab = table) != null && (n = tab.length) > 0 && (first = tab[(n - 1) & (hash = Toolkit.hash(key))]) != null) {
             //? 包装器处理
@@ -335,10 +337,39 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     /**
      * 处理多线程式查询
      */
-    private Wrapper<K, V> getNodeByHashThread(int hash, Object key) {
+    private Wrapper<K, V> getNodeByHashThread(int rawHash, Object key) {
+        int salt = Toolkit.hash(Constants.DEFAULT_HASH_HELPER_VALUE);
+        ExecutorService executor = Toolkit.CACHE_REBUILD_EXECUTOR;
+        CountDownLatch countDownLatch = new CountDownLatch(maxRetry); //3 times retrys, means 4 threads to find the key's possible position
+        List<Wrapper<K, V>> res = new ArrayList<>();
+        //通过线程池进行多线程查询, 最后CountdownLatch等待所有线程结束后汇总结果
+
+        for (int i = 0; i < maxRetry; i++) {
+            int finalI = i;
+            executor.execute(() -> {
+                //处理查询
+                res.add(getRealNode(rawHash + salt * finalI, key));
+                countDownLatch.countDown();
+            });
+        }
+        executor.submit(() -> {
+            try {
+                countDownLatch.await();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
+
 
     }
 
+    /**
+     * Get the real node by just hash
+     * <p>
+     * 通过确定的hash值获取真实节点
+     */
+    private Wrapper<K, V> getRealNode(int i, Object key) {
+    }
 
 
     /**

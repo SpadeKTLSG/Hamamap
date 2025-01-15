@@ -4,6 +4,10 @@ import org.spc.impl.HamaNode;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Toolkit
@@ -12,6 +16,19 @@ import java.lang.reflect.Type;
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
 public interface Toolkit {
+
+    /**
+     * Executor for selecting multiple hash positions
+     * <p>
+     * 选择多个哈希位置的线程执行器
+     */
+    ExecutorService CACHE_REBUILD_EXECUTOR = new ThreadPoolExecutor(
+            Runtime.getRuntime().availableProcessors(),
+            Runtime.getRuntime().availableProcessors() * 2,
+            Constants.THREAD_KEEPALIVE_TIME,
+            TimeUnit.SECONDS,
+            new LinkedBlockingQueue<>(Constants.MAX_THREAD_QUEUE_SIZE)) {
+    };
 
     /**
      * Hash Tool for hamamap
