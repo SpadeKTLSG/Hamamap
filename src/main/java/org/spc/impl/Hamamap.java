@@ -301,9 +301,9 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
 
         //Todo 首先要计算出所有可能的位置:
 
-
-        //Todo 发起多线程查询, 使用线程池 + CountDownLatch等组件
-        getNodeByHash(hash, key);
+        hash = Toolkit.hash()
+        //Todo 1. 发起多线程查询, 使用线程池 + CountDownLatch等组件 2. 使用数组初始化为重试次数, 对每种情况进行探索
+        getNodeByHashThread(hash, key);
 
         if ((tab = table) != null && (n = tab.length) > 0 && (first = tab[(n - 1) & (hash = Toolkit.hash(key))]) != null) {
             //? 包装器处理
@@ -326,11 +326,19 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
 
 
     /**
-     * 处理多线程查询
+     * 处理轮询式查询
      */
     private Wrapper<K, V> getNodeByHash(int hash, Object key) {
 
     }
+
+    /**
+     * 处理多线程式查询
+     */
+    private Wrapper<K, V> getNodeByHashThread(int hash, Object key) {
+
+    }
+
 
 
     /**
