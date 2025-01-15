@@ -5,6 +5,7 @@ import org.spc.api.IHamaEntryEx;
 import org.spc.api.IHamamap;
 import org.spc.api.IHamamapEx;
 import org.spc.tool.Constants;
+import org.spc.tool.MyBoolean;
 import org.spc.tool.Toolkit;
 import org.spc.tool.Wrapper;
 
@@ -413,12 +414,12 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         }
 
         //! 否则就要处理垃圾桶逻辑
-        Boolean success = Boolean.FALSE; //记录是否插入成功
+        MyBoolean success = new MyBoolean(false); //记录是否插入成功
         //当插入并且当前位置的垃圾桶存在垃圾(int[now] > 0)时, 就要开始执行递归重新插入, 用turn代表插入次数
         //改变hash实现修改插入位置: 此时节点还未初始化, 因此需要手动提前处理hash盐, 初始为 1 + 8(一次增长)
         int newTestHash = Toolkit.hash(key) + Toolkit.hash(Constants.DEFAULT_HASH_HELPER_VALUE + Constants.DEFAULT_HASH_HELPER_VALUE_GROW);
         V tempV = putValRetry(newTestHash, key, value, 1, success);
-        if (success) { //子方法重试插入成功
+        if (success.value) { //子方法重试插入成功
             return tempV;
         }
         return putValbyHash(testHash, p, key, value);//重试失败, 仍然正常插入初始位置 (testHash)
@@ -431,27 +432,25 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * @param turn 插入次数, 初始为0
      * @note 未来可以做非递归的实现, 仿照上面的查询
      */
-    private V putValRetry(int nowHash, K key, V value, int turn, Boolean success) {
-        //失败插入, 需要改变hash进行插入. 使用盐进行重新计算位置: 将turn * 基础参数做成 盐 混合形成新的hash值
+    private V putValRetry(int nowHash, K key, V value, int turn, MyBoolean success) {
+        if (turn >= maxRetry) {
+            return null;
+        }
+        //判断能否再次插入: 初始重试和最大重试, 使用的Hash盐剧烈性可以设置为不同 (未来)
         int i;
 
-        if (turn < initialRetry || turn < maxRetry) { //判断能否再次插入: 初始重试和最大重试, 使用的Hash盐剧烈性可以设置为不同 (未来)
-
-            if (table[i = (table.length - 1) & nowHash] == null) { //如果这个位置没有节点(Wrapper) - 意味着没有垃圾直接插入, 不需要处理垃圾桶逻辑
-                table[i] = newNode(nowHash, key, value, null);
-                //维护链关系: 不需要
-                if (++size > threshold) {
-                    resize();
-                }
-                success = Boolean.TRUE;
-                return null;
+        if (table[i = (table.length - 1) & nowHash] == null) { //如果这个位置没有节点(Wrapper) - 意味着没有垃圾直接插入, 不需要处理垃圾桶逻辑
+            table[i] = newNode(nowHash, key, value, null);
+            //维护链关系: 不需要
+            if (++size > threshold) {
+                resize();
             }
-            //改变hash重新试探
-            int newTestHash = Toolkit.hash(key) + Toolkit.hash(Constants.DEFAULT_HASH_HELPER_VALUE + Constants.DEFAULT_HASH_HELPER_VALUE_GROW * turn);
-            return putValRetry(newTestHash, key, value, turn + 1, success);
+            success.value = true;
+            return null;
         }
-
-        return null;
+        //改变hash重新试探
+        int newTestHash = Toolkit.hash(key) + Toolkit.hash(Constants.DEFAULT_HASH_HELPER_VALUE + Constants.DEFAULT_HASH_HELPER_VALUE_GROW * turn);
+        return putValRetry(newTestHash, key, value, turn + 1, success);
     }
 
     /**
@@ -786,7 +785,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     }
 
 
-    //! 迭代器 内部类
+//! 迭代器 内部类
 
     abstract class HamaIterator {
         Wrapper<K, V> next;        // next entry to return 下一个要返回的条目
