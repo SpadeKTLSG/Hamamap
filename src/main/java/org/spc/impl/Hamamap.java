@@ -398,7 +398,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             n = (tab = resize()).length;
         }
 
-        i = (n - 1) & testHash; //todo 改成判断垃圾数量
+        i = (n - 1) & testHash;
 
         //! 如果这个位置没有节点(Wrapper) - 意味着没有垃圾直接插入, 不需要处理垃圾桶逻辑
         if ((p = tab[i]) == null) {
@@ -411,7 +411,12 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             return null;
         }
 
-        //! 否则就要处理垃圾桶逻辑
+        //! 否则就要处理垃圾桶逻辑:
+        if (trashTable[i] < Constants.DEFAULT_CANSTANDED_TRASH_COUNT) {  //容忍一定量的垃圾插入
+            return putValbyHash(testHash, p, key, value);
+        }
+
+        //垃圾太多了, 换个地方(检测)
         MyBoolean success = new MyBoolean(false); //记录是否插入成功
         //当插入并且当前位置的垃圾桶存在垃圾(int[now] > 0)时, 就要开始执行递归重新插入, 用turn代表插入次数
         //改变hash实现修改插入位置: 此时节点还未初始化, 因此需要手动提前处理hash盐, 初始为 1 + 8(一次增长)

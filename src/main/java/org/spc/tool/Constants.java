@@ -15,6 +15,7 @@ public interface Constants {
      * <p>
      * 默认初始插入重试次数 = 1
      */
+    @Deprecated
     int DEFAULT_INITIAL_RETRY = 1;
 
     /**
@@ -64,6 +65,13 @@ public interface Constants {
      * 是否使用多线程 (发起查询)
      */
     boolean USE_THREAD = false;
+
+    /**
+     * (in one table[?]) can stand trash count
+     * <p>
+     * (一个table桶里面) 可以容忍的垃圾数量
+     */
+    int DEFAULT_CANSTANDED_TRASH_COUNT = 3;
 
 
     //! Original
