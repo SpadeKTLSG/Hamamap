@@ -13,7 +13,6 @@ import org.spc.wrapper.Wrapper;
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.*;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -240,12 +239,12 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * <p>
      * 添加
      *
-     * @note 采用试探的方式, 通过hash值和默认的hash盐值进行和
+     * @note 采用试探的方式, 通过hash值和默认的hash盐值进行和; 当前版本需要手动保证唯一
      */
     @Override
     public V put(K key, V value) {
         int testHash = Toolkit.hash(key) + Toolkit.hash(Constants.DEFAULT_HASH_HELPER_VALUE);
-        remove(key); //当前版本需要手动保证唯一
+        remove(key); //手动保证唯一
         return putVal(testHash, key, value);
     }
 
@@ -295,10 +294,13 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         if (table == null || size <= 0) {
             return false;
         }
+
+        //遍历table查询
         for (Wrapper<K, V> e : table) {
             if (e == null) {
                 continue;
             }
+
             for (HamaNode<K, V> ek = e.getNode(); ek != null; ek = ek.next) {//对一个桶中的元素进行深入
                 if ((v = ek.value) == value || (value != null && value.equals(v))) {
                     return true;
@@ -318,7 +320,6 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     @Override
     public V getOrDefault(Object key, V defaultValue) {
         Wrapper<K, V> e;
-
         return (e = getNode(key)) == null ? defaultValue : e.getNode().value;
     }
 
@@ -404,64 +405,24 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     private Wrapper<K, V> getNodeByHashThread(int rawHash, Object key) {
         int salt = Toolkit.hash(Constants.DEFAULT_HASH_HELPER_VALUE);
 
+        AtomicReference<Wrapper<K, V>> res = new AtomicReference<>();
         //通过线程池进行多线程查询, 最后CountdownLatch等待所有线程结束后汇总结果
         ExecutorService executor = Toolkit.CACHE_REBUILD_EXECUTOR;
-        CountDownLatch countDownLatch = new CountDownLatch(maxRetry); //3 times retrys, means 4 threads to find the key's possible position
-        List<Wrapper<K, V>> res = new ArrayList<>(); //处理查询(以防万一出来多个位置) <- 调试用, 未来可直接返回
-        AtomicReference<Wrapper<K, V>> result = new AtomicReference<>();
+
 
         for (int i = 1; i < maxRetry; i++) {
             int finalI = i;
             executor.execute(() -> {
-                res.add(getRealNode(rawHash + salt * Constants.DEFAULT_HASH_HELPER_VALUE_GROW * (finalI - 1), key));
-                countDownLatch.countDown();
+                Wrapper<K, V> temp = getRealNode(rawHash + salt + Constants.DEFAULT_HASH_HELPER_VALUE_GROW * (finalI - 1), key);
+                if (temp != null) {
+                    res.set(temp);
+                }
             });
         }
-        executor.submit(() -> {
-            try {
-                countDownLatch.await();
-                //找到第一个非空的结果
-                result.set(res.stream().filter(Objects::nonNull).findFirst().orElse(null));
-            } catch (InterruptedException ignored) {
-            }
-        });
-        return result.get();
+
+        return res.get();
     }
 
-
-    /**
-     * handle multi-threaded query All
-     * <p>
-     * 处理多线程式查询 All
-     *
-     * @note 不推荐使用, 仅供调试
-     */
-    private AllLocate<K, V> getNodeByHashThreadAll(int rawHash, Object key) {
-        int salt = Toolkit.hash(Constants.DEFAULT_HASH_HELPER_VALUE);
-
-        //通过线程池进行多线程查询, 最后CountdownLatch等待所有线程结束后汇总结果
-        ExecutorService executor = Toolkit.CACHE_REBUILD_EXECUTOR;
-        CountDownLatch countDownLatch = new CountDownLatch(maxRetry); //3 times retrys, means 4 threads to find the key's possible position
-        List<AllLocate<K, V>> res = new ArrayList<>(); //处理查询(以防万一出来多个位置) <- 调试用, 未来可直接返回
-        AtomicReference<AllLocate<K, V>> result = new AtomicReference<>();
-
-        for (int i = 1; i < maxRetry; i++) {
-            int finalI = i;
-            executor.execute(() -> {
-                res.add(getRealNodeAll(rawHash + salt * Constants.DEFAULT_HASH_HELPER_VALUE_GROW * (finalI - 1), key));
-                countDownLatch.countDown();
-            });
-        }
-        executor.submit(() -> {
-            try {
-                countDownLatch.await();
-                //找到第一个非空的结果
-                result.set(res.stream().filter(Objects::nonNull).findFirst().orElse(null));
-            } catch (InterruptedException ignored) {
-            }
-        });
-        return result.get();
-    }
 
     /**
      * Get the real node by just hash
@@ -935,7 +896,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     }
 
 
-    //! 迭代器 内部类
+//! 迭代器 内部类
 
     abstract class HamaIterator {
         Wrapper<K, V> next;        // next entry to return 下一个要返回的条目

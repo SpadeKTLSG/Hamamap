@@ -64,7 +64,7 @@ public interface Constants {
      * <p>
      * 是否使用多线程 (发起查询)
      */
-    boolean USE_THREAD = false;
+    boolean USE_THREAD = true;
 
     /**
      * (in one table[?]) can stand trash count
