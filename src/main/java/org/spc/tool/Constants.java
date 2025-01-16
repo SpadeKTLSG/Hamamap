@@ -60,13 +60,6 @@ public interface Constants {
     int THREAD_KEEPALIVE_TIME = 1;
 
     /**
-     * Use thread or not (for query)
-     * <p>
-     * 是否使用多线程 (发起查询)
-     */
-    boolean USE_THREAD = true;
-
-    /**
      * (in one table[?]) can stand trash count
      * <p>
      * (一个table桶里面) 可以容忍的垃圾数量
