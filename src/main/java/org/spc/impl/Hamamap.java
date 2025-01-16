@@ -345,6 +345,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      *
      * @note 只给出一个Key, 但是真正存放的时候, 可能存在下面几个可能的位置是真正存放的地方:
      * hash =[ {key} + {hashHelper} * {0~maxRetry}]; 因此要发起多次查询, 以便找到真正的位置
+     * {保留了getNodeByHashThread 多线程方法(不稳定)}
      */
     final AllLocate<K, V> getNodeAll(Object key) {
         int testKeyHash = Toolkit.hash(key);
@@ -392,14 +393,13 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * 通过确定的hash值获取真实节点
      */
     private Wrapper<K, V> getRealNode(int realHash, Object key) {
-        Wrapper<K, V>[] tab;
         Wrapper<K, V> first;
         Wrapper<K, V> e;
         int n;
         K k;
 
-        if ((tab = table) != null && (n = tab.length) > 0 && (first = tab[(n - 1) & realHash]) != null) {
-            //? 包装器处理:
+        if (table != null && (n = table.length) > 0 && (first = table[(n - 1) & realHash]) != null) {
+            //查看头
             if (first.hashCode() == realHash && ((k = first.getNode().key) == key || (key != null && key.equals(k)))) {
                 return first;
             }
@@ -424,10 +424,12 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         if (table == null) {
             return null;
         }
+
         int n = table.length;
         if (n == 0) {
             return null;
         }
+
         Wrapper<K, V> first;
         Wrapper<K, V> storeFirst;
         Wrapper<K, V> e;
@@ -435,7 +437,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         K k;
 
         if ((storeFirst = first = table[sit]) != null) {
-            //? 包装器处理:
+
             if (first.hashCode() == realHash && ((k = first.getNode().key) == key || (key != null && key.equals(k)))) {
                 return new AllLocate<>(first, first, sit);
             }
@@ -449,6 +451,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
                 first = e;
             }
         }
+
         return null;
     }
 
@@ -461,22 +464,21 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * @note 插入时候要涉及到 "避让垃圾桶" 的逻辑
      */
     final V putVal(int testHash, K key, V value) {
-        Wrapper<K, V>[] tab; //本地哈希表引用
+
         Wrapper<K, V> p; //当前位置的包装器
-        int n; // 记录哈希表的长度length
-        int i; // 记录哈希表的位置sit
+        int n;
 
         //如果哈希表为空, 或者长度为0, 就扩容
-        if ((tab = table) == null || (n = tab.length) == 0) {
-            n = (tab = resize()).length;
+        if (table == null || (n = table.length) == 0) {
+            n = (table = resize()).length;
         }
 
-        i = (n - 1) & testHash;
+        int i = (n - 1) & testHash;// 记录哈希表的位置sit
 
-        //! 如果这个位置没有节点(Wrapper) - 意味着没有垃圾直接插入, 不需要处理垃圾桶逻辑
-        if ((p = tab[i]) == null) {
-            tab[i] = newNode(testHash, key, value, null);
-            //维护链关系: 不需要
+
+        //! 如果这个位置没有节点(Wrapper) - 也意味着没有垃圾直接插入, 不需要处理垃圾桶逻辑
+        if ((p = table[i]) == null) {
+            table[i] = newNode(testHash, key, value, null);
 
             if (++size > threshold) {
                 resize();
@@ -485,15 +487,15 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         }
 
         //! 否则就要处理垃圾桶逻辑:
+        //先容忍垃圾
         if (trashTable[i] < Constants.DEFAULT_CANSTANDED_TRASH_COUNT) {  //容忍一定量的垃圾插入
             return putValbyHash(testHash, p, key, value);
         }
 
-        //垃圾太多了, 换个地方(检测)
-        MyBoolean success = new MyBoolean(false); //记录是否插入成功
-        //当插入并且当前位置的垃圾桶存在垃圾(int[now] > 0)时, 就要开始执行递归重新插入, 用turn代表插入次数
-        //改变hash实现修改插入位置: 此时节点还未初始化, 因此需要手动提前处理hash盐, 初始为 1 + 8(一次增长)
+        //垃圾实在太多了, 换个地方(检测)
+        MyBoolean success = new MyBoolean(false);
         int newTestHash = Toolkit.hash(key) + Toolkit.hash(Constants.DEFAULT_HASH_HELPER_VALUE + Constants.DEFAULT_HASH_HELPER_VALUE_GROW);
+
         V tempV = putValRetry(newTestHash, key, value, 1, success);
         if (success.value) { //子方法重试插入成功
             return tempV;
@@ -503,43 +505,48 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
 
 
     /**
+     * Retry to insert
+     * <p>
      * 处理插入的递归调用方法
      *
      * @param turn 插入次数, 初始为0
      * @note 未来可以做非递归的实现, 仿照上面的查询
+     * ;判断能否再次插入可以有初始重试和最大重试, 使用的Hash盐剧烈性可以设置为不同 (未来
      */
     private V putValRetry(int nowHash, K key, V value, int turn, MyBoolean success) {
         if (turn >= maxRetry) {
             return null;
         }
-        //判断能否再次插入: 初始重试和最大重试, 使用的Hash盐剧烈性可以设置为不同 (未来)
+
         int i;
 
-        if (table[i = (table.length - 1) & nowHash] == null) { //如果这个位置没有节点(Wrapper) - 意味着没有垃圾直接插入, 不需要处理垃圾桶逻辑
+        if (table[i = (table.length - 1) & nowHash] == null) { //如果这个位置没有节点(Wrapper), 不需要处理垃圾桶逻辑
             table[i] = newNode(nowHash, key, value, null);
-            //维护链关系: 不需要
             if (++size > threshold) {
                 resize();
             }
+
             success.value = true;
             return null;
         }
+
         //改变hash重新试探
         int newTestHash = Toolkit.hash(key) + Toolkit.hash(Constants.DEFAULT_HASH_HELPER_VALUE + Constants.DEFAULT_HASH_HELPER_VALUE_GROW * (turn - 1));
         return putValRetry(newTestHash, key, value, turn + 1, success);
     }
 
+
     /**
      * Use specified hash to insert into the corresponding p's sequence area
+     * <p>
+     * 采用指定的hash值插入对应p的序列区域
      *
      * @param p 对应桶的初始化位置的包装器对象
-     *          <p>
-     *          采用指定的hash值插入对应p的序列区域
      */
     private V putValbyHash(int realHash, Wrapper<K, V> p, K key, V value) {
 
-        Wrapper<K, V> e = null; //临时位置包装器
-        K k; //临时键
+        Wrapper<K, V> e;
+        K k;
 
         if (p.hashCode() == realHash && ((k = p.getNode().key) == key || (key != null && key.equals(k)))) {
             e = p; //如果对象节点的hash值和key值相同, 就直接赋值
@@ -547,18 +554,19 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         } else {
             //一旦进行了遍历, 就要处理垃圾桶关系
             for (; ; ) {
-                //如果下一个节点为空, 就直接插入
 
+                //如果下一个节点为空, 就直接插入
                 if (p.getNode().next == null || (e = p.getNode().next.getWrapper()) == null) {//如果下一个节点为空, 就直接插入
                     p.getNode().next = newNode(realHash, key, value, null).getNode(); //维护关系
                     e = null;
                     break;
                 }
+
                 //如果下一个节点不为空, 就继续遍历; 如果找到相同的key, 就直接替换
                 if (e.hashCode() == realHash && ((k = e.getNode().key) == key || (key != null && key.equals(k)))) {
                     break;
                 }
-                p = e; //前进
+                p = e;
             }
         }
 
@@ -567,9 +575,9 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             e.getNode().value = value;
             return oldValue;
         }
+
         //?在当前hashTable对应的位置的垃圾桶中增加一个垃圾
         trashTable[(table.length - 1) & realHash] += 1;
-
 
         if (++size > threshold) {
             resize();
@@ -623,10 +631,12 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * @note 扩容时, 按照逻辑讲, 应该暂时会变得宽敞起来, 因此我决定直接执行垃圾桶清空操作 (初始化长度), 暂时不搬运了
      */
     final Wrapper<K, V>[] resize() {
+
         Wrapper<K, V>[] oldTab = table;
         int oldCap = (oldTab == null) ? 0 : oldTab.length;
         int oldThr = threshold;
-        int newCap, newThr = 0;
+        int newCap;
+        int newThr = 0;
 
 
         if (oldCap > 0) {
@@ -653,7 +663,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         @SuppressWarnings({"unchecked"}) Wrapper<K, V>[] newTab = (Wrapper<K, V>[]) new Wrapper[newCap];
         table = newTab;
 
-        //摆好垃圾桶
+        //? 摆好垃圾桶, 这里直接新建而不移动垃圾桶了
         trashTable = new int[newCap];
         Arrays.fill(trashTable, 0); //赋值垃圾桶全为0
 
@@ -682,7 +692,6 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
 
                 //遍历这个桶中的节点
                 do {
-                    //空指针:
                     if (e.getNode().next != null) {
                         next = e.getNode().next.getWrapper();
                     } else {
@@ -733,23 +742,21 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * @note 删除需要带走该位置垃圾桶的一个垃圾对象, 就是把该位置的数组元素减一
      */
     final Wrapper<K, V> removeNode(int testHash, Object key) {
-        Wrapper<K, V> p; //该桶位置的包装器头
         AllLocate<K, V> allLocate;
-
 
         if (table == null || size == 0 || table.length == 0) { //合法性检查
             return null;
         }
-        if ((p = table[(table.length - 1) & testHash]) == null) { //试探的这个桶位置没有节点
+        if (table[(table.length - 1) & testHash] == null) { //试探的这个桶位置没有节点
             return null; //仅作为试探
         }
 
-
-        //查找节点 - 调用查询方法获得具体位置和对象
+        //查找节点 - 获得具体位置和对象
         allLocate = getNodeAll(key);
-        if (allLocate == null || allLocate.getData() == null) { //没找到哦
+        if (allLocate == null || allLocate.getData() == null) { //没找到
             return null;
         }
+
         //解包
         Wrapper<K, V> newP = allLocate.getHead();
         Wrapper<K, V> wrapper = allLocate.getData();
@@ -766,8 +773,8 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         }
 
         --size;//调整大小
-        //找到垃圾桶对应位置下标, 进行清除
-        if (trashTable[newIndex] > 0) {
+
+        if (trashTable[newIndex] > 0) {  //找到垃圾桶对应位置下标, 进行倒垃圾
             trashTable[newIndex]--;
         }
 
@@ -861,9 +868,9 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
 //! 迭代器 内部类
 
     abstract class HamaIterator {
-        Wrapper<K, V> next;        // next entry to return 下一个要返回的条目
-        Wrapper<K, V> current;     // current entry    当前条目
-        int index;             // current slot    当前插槽
+        Wrapper<K, V> next;
+        Wrapper<K, V> current;
+        int index;
 
         HamaIterator() {
             Wrapper<K, V>[] t = table;
@@ -899,8 +906,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
 
         @Deprecated
         public final void remove() {
-            //暂时关闭
-            throw new UnsupportedOperationException();
+            throw new UnsupportedOperationException();      //暂时关闭, 当做视图来用
         }
     }
 
