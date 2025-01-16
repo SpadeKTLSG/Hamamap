@@ -2,7 +2,7 @@ package org.spc.impl;
 
 import lombok.Getter;
 import org.spc.api.IHamaEntryEx;
-import org.spc.tool.Wrapper;
+import org.spc.wrapper.Wrapper;
 
 import java.util.Objects;
 

@@ -1,8 +1,10 @@
-package org.spc.tool;
+package org.spc.wrapper;
 
 import lombok.Getter;
 import lombok.Setter;
 import org.spc.impl.HamaNode;
+import org.spc.tool.Constants;
+import org.spc.tool.Toolkit;
 
 import java.util.Objects;
 

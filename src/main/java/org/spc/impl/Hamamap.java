@@ -5,9 +5,9 @@ import org.spc.api.IHamaEntryEx;
 import org.spc.api.IHamamap;
 import org.spc.api.IHamamapEx;
 import org.spc.tool.Constants;
-import org.spc.tool.MyBoolean;
 import org.spc.tool.Toolkit;
-import org.spc.tool.Wrapper;
+import org.spc.wrapper.MyBoolean;
+import org.spc.wrapper.Wrapper;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -667,8 +667,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     final Wrapper<K, V> removeNode(int testHash, Object key) {
         Wrapper<K, V> p; //该桶位置的包装器头
         Wrapper<K, V> nodeWrapper;
-        int newIndex = -1; //反查索引
-        Wrapper<K, V> newP = null; //反查头包装器
+
 
         if (table == null || size == 0 || table.length == 0) { //合法性检查
             return null;
@@ -678,15 +677,18 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         }
 
 
-        //查找节点 - 调用查询方法, 需要反查
+        //查找节点 - 调用查询方法获得具体位置和对象 todo
         nodeWrapper = getNode(key);
         if (nodeWrapper == null) { //没找到哦
             return null;
         }
+
         // find newIndex
         //use hash count
         // find newP
         // 反查具体的table桶位置和具体的位置定位头包装器
+        int newIndex = -1; //反查索引 todo 直接得到
+        Wrapper<K, V> newP = null; //反查头包装器
         for (int i = 0; i < table.length; i++) {
             p = table[i];
             while (p != null) {
@@ -707,6 +709,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             }
         }
 
+        ///////////////////////////
         if (newIndex == -1) { // 没有找到nodeWrapper
             return null;
         }

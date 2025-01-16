@@ -1,6 +1,7 @@
 package org.spc.tool;
 
 import org.spc.impl.HamaNode;
+import org.spc.wrapper.Wrapper;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;

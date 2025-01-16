@@ -1,4 +1,4 @@
-package org.spc.tool;
+package org.spc.wrapper;
 
 import lombok.Data;
 
