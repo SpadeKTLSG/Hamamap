@@ -306,7 +306,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     private Wrapper<K, V> getNodeByHash(int hash, Object key) {
         int salt = Toolkit.hash(Constants.DEFAULT_HASH_HELPER_VALUE);
         //使用数组初始化为重试次数, 对每种情况进行探索
-        for (int i = 0; i < maxRetry; i++) {
+        for (int i = 1; i < maxRetry; i++) {
             Wrapper<K, V> res = getRealNode(hash + salt * i, key);
             if (res != null) {
                 return res;
@@ -364,6 +364,17 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         if ((tab = table) != null && (n = tab.length) > 0 && (first = tab[(n - 1) & realHash]) != null) {
             //? 包装器处理:
             //! 正确判断节点的真实Hash值方法, 是通过包装器对象.hashCode()方法获取
+            //debug: 确认hash值
+            System.out.println(Toolkit.hash(first.getKey())); //110183 没问题
+            System.out.println(first.hashCode()); //220368 有问题, 不对应
+            System.out.println(realHash - Constants.DEFAULT_HASH_HELPER_VALUE); //110183
+            System.out.println(realHash); //110184
+            System.out.println("Key hash: " + Toolkit.hash(first.getKey())); // Expected key hash
+            System.out.println("Hash helper: " + Toolkit.hash(first.getHashHelper())); // Hash helper value 110185!!!
+            System.out.println("Wrapper hashCode: " + first.hashCode()); // Wrapper hash code
+            System.out.println("Expected hash: " + (Toolkit.hash(first.getKey()) + Toolkit.hash(first.getHashHelper()))); // Expected combined hash
+            System.out.println("Real hash: " + realHash); // Real hash value
+            System.out.println("Real hash - DEFAULT_HASH_HELPER_VALUE: " + (realHash - Constants.DEFAULT_HASH_HELPER_VALUE)); // Adjusted real hash
             if (first.hashCode() == realHash && ((k = first.getNode().key) == key || (key != null && key.equals(k)))) {
                 return first;
             }
@@ -506,7 +517,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * @note hash已经被提升到了包装类中, 节点的hash尽量不要用
      */
     Wrapper<K, V> newNode(int hash, K key, V value, HamaNode<K, V> next) {
-        return new Wrapper<>(new HamaNode<>(key, value, next), hash);
+        return new Wrapper<>(new HamaNode<>(key, value, next), hash - Toolkit.hash(key));
     }
 
 
