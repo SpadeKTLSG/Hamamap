@@ -6,6 +6,7 @@ import org.spc.api.IHamamap;
 import org.spc.api.IHamamapEx;
 import org.spc.tool.Constants;
 import org.spc.tool.Toolkit;
+import org.spc.wrapper.AllLocate;
 import org.spc.wrapper.MyBoolean;
 import org.spc.wrapper.Wrapper;
 
@@ -238,13 +239,13 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * Add
      * <p>
      * 添加
+     *
+     * @note 采用试探的方式, 通过hash值和默认的hash盐值进行和
      */
     @Override
     public V put(K key, V value) {
-        //采用试探的方式, 通过hash值和默认的hash盐值进行和. 到时候可以还原并采用别的Hash来改变位置
         int testHash = Toolkit.hash(key) + Toolkit.hash(Constants.DEFAULT_HASH_HELPER_VALUE);
-        //保证唯一, 需要先删除里面存在的key, value对
-        remove(key);
+        remove(key); //当前版本需要手动保证唯一
         return putVal(testHash, key, value);
     }
 
@@ -265,18 +266,19 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * Clear
      * <p>
      * 清空
+     *
+     * @note 图省事直接新建了
      */
     @Override
+    @SuppressWarnings({"unchecked"})
     public void clear() {
-        Wrapper<K, V>[] tab;
-        if ((tab = table) != null && size > 0) {
-            size = 0;
-            // 直接新建
-            @SuppressWarnings({"unchecked"}) Wrapper<K, V>[] newTab = (Wrapper<K, V>[]) new Wrapper[Constants.DEFAULT_INITIAL_CAPACITY];
-            table = newTab;
-            int[] trash = trashTable;
-            Arrays.fill(trash, 0);
+        if (table == null || size == 0) {
+            return;
         }
+
+        size = 0;
+        this.table = (Wrapper<K, V>[]) new Wrapper[Constants.DEFAULT_INITIAL_CAPACITY];
+        trashTable = new int[Constants.DEFAULT_INITIAL_CAPACITY];
     }
 
 
@@ -297,6 +299,22 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         }
     }
 
+    /**
+     * get a node by key
+     * <p>
+     * 通过键获取一个节点
+     *
+     * @note 只给出一个Key, 但是真正存放的时候, 可能存在下面几个可能的位置是真正存放的地方:
+     * hash =[ {key} + {hashHelper} * {0~maxRetry}]; 因此要发起多次查询, 以便找到真正的位置
+     */
+    final AllLocate<K, V> getNodeAll(Object key) {
+        int testKeyHash = Toolkit.hash(key);
+        if (Constants.USE_THREAD) {
+            return getNodeByHashThreadAll(testKeyHash, key);
+        } else {
+            return getNodeByHashAll(testKeyHash, key); //normal
+        }
+    }
 
     /**
      * Get a node by hash
@@ -314,6 +332,24 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         }
         return null;
     }
+
+    /**
+     * Get a node by hash All
+     * <p>
+     * 处理轮询式查询All
+     */
+    private AllLocate<K, V> getNodeByHashAll(int keyHash, Object key) {
+        int salt = Toolkit.hash(Constants.DEFAULT_HASH_HELPER_VALUE);
+        //使用数组初始化为重试次数, 对每种情况进行探索
+        for (int i = 1; i < maxRetry; i++) {
+            AllLocate<K, V> res = getRealNodeAll(keyHash + salt + Constants.DEFAULT_HASH_HELPER_VALUE_GROW * (i - 1), key);
+            if (res != null) {
+                return res;
+            }
+        }
+        return null;
+    }
+
 
     /**
      * handle multi-threaded query
@@ -335,6 +371,41 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             int finalI = i;
             executor.execute(() -> {
                 res.add(getRealNode(rawHash + salt * Constants.DEFAULT_HASH_HELPER_VALUE_GROW * (finalI - 1), key));
+                countDownLatch.countDown();
+            });
+        }
+        executor.submit(() -> {
+            try {
+                countDownLatch.await();
+                //找到第一个非空的结果
+                result.set(res.stream().filter(Objects::nonNull).findFirst().orElse(null));
+            } catch (InterruptedException ignored) {
+            }
+        });
+        return result.get();
+    }
+
+
+    /**
+     * handle multi-threaded query All
+     * <p>
+     * 处理多线程式查询 All
+     *
+     * @note 不推荐使用, 仅供调试
+     */
+    private AllLocate<K, V> getNodeByHashThreadAll(int rawHash, Object key) {
+        int salt = Toolkit.hash(Constants.DEFAULT_HASH_HELPER_VALUE);
+
+        //通过线程池进行多线程查询, 最后CountdownLatch等待所有线程结束后汇总结果
+        ExecutorService executor = Toolkit.CACHE_REBUILD_EXECUTOR;
+        CountDownLatch countDownLatch = new CountDownLatch(maxRetry); //3 times retrys, means 4 threads to find the key's possible position
+        List<AllLocate<K, V>> res = new ArrayList<>(); //处理查询(以防万一出来多个位置) <- 调试用, 未来可直接返回
+        AtomicReference<AllLocate<K, V>> result = new AtomicReference<>();
+
+        for (int i = 1; i < maxRetry; i++) {
+            int finalI = i;
+            executor.execute(() -> {
+                res.add(getRealNodeAll(rawHash + salt * Constants.DEFAULT_HASH_HELPER_VALUE_GROW * (finalI - 1), key));
                 countDownLatch.countDown();
             });
         }
@@ -378,6 +449,42 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         return null;
     }
 
+    /**
+     * Get the real node by just hash All
+     * <p>
+     * 通过确定的hash值获取真实节点 All
+     */
+    private AllLocate<K, V> getRealNodeAll(int realHash, Object key) {
+        if (table == null) {
+            return null;
+        }
+        int n = table.length;
+        if (n == 0) {
+            return null;
+        }
+        Wrapper<K, V> first;
+        Wrapper<K, V> storeFirst;
+        Wrapper<K, V> e;
+        int sit = (n - 1) & realHash;
+        K k;
+
+        if ((storeFirst = first = table[sit]) != null) {
+            //? 包装器处理:
+            if (first.hashCode() == realHash && ((k = first.getNode().key) == key || (key != null && key.equals(k)))) {
+                return new AllLocate<>(first, first, sit);
+            }
+
+
+            //遍历桶中的链表
+            while (first.getNode().next != null && (e = first.getNode().next.getWrapper()) != null) { //小心空指针
+                if (e.hashCode() == realHash && ((k = e.getNode().key) == key || (key != null && key.equals(k)))) {
+                    return new AllLocate<>(storeFirst, e, sit);
+                }
+                first = e;
+            }
+        }
+        return null;
+    }
 
     /**
      * Insert a node by KV
@@ -478,6 +585,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
 
                 if (p.getNode().next == null || (e = p.getNode().next.getWrapper()) == null) {//如果下一个节点为空, 就直接插入
                     p.getNode().next = newNode(realHash, key, value, null).getNode(); //维护关系
+                    e = null;
                     break;
                 }
                 //如果下一个节点不为空, 就继续遍历; 如果找到相同的key, 就直接替换
@@ -486,8 +594,6 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
                 }
                 p = e; //前进
             }
-            //?在当前hashTable对应的位置的垃圾桶中增加一个垃圾
-            trashTable[(table.length - 1) & realHash] += 1;
         }
 
         if (e != null) { //如果对应位置的对象不为空即为 找到了相同的键, 就直接替换值
@@ -495,6 +601,9 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             e.getNode().value = value;
             return oldValue;
         }
+        //?在当前hashTable对应的位置的垃圾桶中增加一个垃圾
+        trashTable[(table.length - 1) & realHash] += 1;
+
 
         if (++size > threshold) {
             resize();
@@ -671,7 +780,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      */
     final Wrapper<K, V> removeNode(int testHash, Object key) {
         Wrapper<K, V> p; //该桶位置的包装器头
-        Wrapper<K, V> nodeWrapper;
+        AllLocate<K, V> allLocate;
 
 
         if (table == null || size == 0 || table.length == 0) { //合法性检查
@@ -682,51 +791,24 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         }
 
 
-        //查找节点 - 调用查询方法获得具体位置和对象 todo
-        nodeWrapper = getNode(key);
-        if (nodeWrapper == null) { //没找到哦
+        //查找节点 - 调用查询方法获得具体位置和对象
+        allLocate = getNodeAll(key);
+        if (allLocate == null || allLocate.getData() == null) { //没找到哦
             return null;
         }
+        //解包
+        Wrapper<K, V> newP = allLocate.getHead();
+        Wrapper<K, V> wrapper = allLocate.getData();
+        int newIndex = allLocate.getSit();
 
-        // find newIndex
-        //use hash count
-        // find newP
-        // 反查具体的table桶位置和具体的位置定位头包装器
-        int newIndex = -1; //反查索引 todo 直接得到
-        Wrapper<K, V> newP = null; //反查头包装器
-        for (int i = 0; i < table.length; i++) {
-            p = table[i];
-            while (p != null) {
-                if (p == nodeWrapper) {
-                    newIndex = i;
-                    newP = table[newIndex];
-                    break;
-                }
-                if (p.getNode().next != null) {
-                    p = p.getNode().next.getWrapper();
-                } else {
-                    //到头了, break
-                    break;
-                }
-            }
-            if (newIndex != -1) {
-                break;
-            }
-        }
-
-        ///////////////////////////
-        if (newIndex == -1) { // 没有找到nodeWrapper
-            return null;
-        }
-
-        if (nodeWrapper == newP) { //如果是头节点
-            if (nodeWrapper.getNode().next != null) { //小心空指针
-                table[newIndex] = nodeWrapper.getNode().next.getWrapper();
+        if (wrapper == newP) { //如果目标就是头节点
+            if (wrapper.getNode().next != null) { //小心空指针
+                table[newIndex] = wrapper.getNode().next.getWrapper();
             } else {
                 table[newIndex] = null;
             }
         } else { //如果不是头节点, 使用前驱节点短路之
-            newP.getNode().next = nodeWrapper.getNode().next;
+            newP.getNode().next = wrapper.getNode().next;
         }
 
         --size;//调整大小
@@ -735,7 +817,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             trashTable[newIndex]--;
         }
 
-        return nodeWrapper;
+        return wrapper;
     }
 
 

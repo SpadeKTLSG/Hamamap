@@ -110,13 +110,13 @@ class HamaFunctionalTest {
      * 测试Hamamap复合功能
      */
     @Test
-    void testComplexFunc() { //todo mei
+    void testComplexFunc() {
         map.put("one", 1);
         map.put("two", 2);
         map.put("three", 3);
         map.put("four", 4);
         map.put("five", 5);
-
+        System.out.println(map.entrySet());
         assertEquals(5, map.size());
         assertTrue(map.containsKey("three"));
         assertTrue(map.containsValue(4));
