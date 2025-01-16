@@ -24,8 +24,24 @@ public class HamaEzTest {
      */
     @Test
     void testBasicFunc_Insert() {
-        map.put("one", 1);
+        map.put("three", 3);
+        map.put("three", 1);
+        System.out.println(map.entrySet());
+        assertEquals(1, map.get("three"));
+    }
 
+    /**
+     * 测试Hamamap插入功能 NPE
+     */
+    @Test
+    void testBasicFunc_InsertNPE() {
+
+        map.put("one", 1);
         assertEquals(1, map.get("one"));
+        map.put("two", 2);
+        assertEquals(2, map.get("two"));
+        map.put("three", 3);
+        System.out.println(map.entrySet());
+        assertEquals(3, map.get("three"));
     }
 }

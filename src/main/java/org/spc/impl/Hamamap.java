@@ -243,6 +243,8 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     public V put(K key, V value) {
         //采用试探的方式, 通过hash值和默认的hash盐值进行和. 到时候可以还原并采用别的Hash来改变位置
         int testHash = Toolkit.hash(key) + Toolkit.hash(Constants.DEFAULT_HASH_HELPER_VALUE);
+        //保证唯一, 需要先删除里面存在的key, value对
+        remove(key);
         return putVal(testHash, key, value);
     }
 
@@ -288,7 +290,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * @note 只给出一个Key, 但是真正存放的时候, 可能存在下面几个可能的位置是真正存放的地方:
      * hash =[ {key} + {hashHelper} * {0~maxRetry}]; 因此要发起多次查询, 以便找到真正的位置
      */
-    final Wrapper<K, V> getNode(Object key) { //todo FIXME: 插入了查不到
+    final Wrapper<K, V> getNode(Object key) {
         int testKeyHash = Toolkit.hash(key);
         if (Constants.USE_THREAD) {
             return getNodeByHashThread(testKeyHash, key);
@@ -303,11 +305,11 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * <p>
      * 处理轮询式查询
      */
-    private Wrapper<K, V> getNodeByHash(int hash, Object key) {
+    private Wrapper<K, V> getNodeByHash(int keyHash, Object key) {
         int salt = Toolkit.hash(Constants.DEFAULT_HASH_HELPER_VALUE);
         //使用数组初始化为重试次数, 对每种情况进行探索
         for (int i = 1; i < maxRetry; i++) {
-            Wrapper<K, V> res = getRealNode(hash + salt * i, key);
+            Wrapper<K, V> res = getRealNode(keyHash + salt + Constants.DEFAULT_HASH_HELPER_VALUE_GROW * i, key);
             if (res != null) {
                 return res;
             }
@@ -331,10 +333,10 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         List<Wrapper<K, V>> res = new ArrayList<>(); //处理查询(以防万一出来多个位置) <- 调试用, 未来可直接返回
         AtomicReference<Wrapper<K, V>> result = new AtomicReference<>();
 
-        for (int i = 0; i < maxRetry; i++) {
+        for (int i = 1; i < maxRetry; i++) {
             int finalI = i;
             executor.execute(() -> {
-                res.add(getRealNode(rawHash + salt * finalI, key));
+                res.add(getRealNode(rawHash + salt * Constants.DEFAULT_HASH_HELPER_VALUE_GROW * finalI, key));
                 countDownLatch.countDown();
             });
         }
@@ -363,18 +365,6 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
 
         if ((tab = table) != null && (n = tab.length) > 0 && (first = tab[(n - 1) & realHash]) != null) {
             //? 包装器处理:
-            //! 正确判断节点的真实Hash值方法, 是通过包装器对象.hashCode()方法获取
-            //debug: 确认hash值
-            System.out.println(Toolkit.hash(first.getKey())); //110183 没问题
-            System.out.println(first.hashCode()); //220368 有问题, 不对应
-            System.out.println(realHash - Constants.DEFAULT_HASH_HELPER_VALUE); //110183
-            System.out.println(realHash); //110184
-            System.out.println("Key hash: " + Toolkit.hash(first.getKey())); // Expected key hash
-            System.out.println("Hash helper: " + Toolkit.hash(first.getHashHelper())); // Hash helper value 110185!!!
-            System.out.println("Wrapper hashCode: " + first.hashCode()); // Wrapper hash code
-            System.out.println("Expected hash: " + (Toolkit.hash(first.getKey()) + Toolkit.hash(first.getHashHelper()))); // Expected combined hash
-            System.out.println("Real hash: " + realHash); // Real hash value
-            System.out.println("Real hash - DEFAULT_HASH_HELPER_VALUE: " + (realHash - Constants.DEFAULT_HASH_HELPER_VALUE)); // Adjusted real hash
             if (first.hashCode() == realHash && ((k = first.getNode().key) == key || (key != null && key.equals(k)))) {
                 return first;
             }
@@ -410,8 +400,10 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             n = (tab = resize()).length;
         }
 
+        i = (n - 1) & testHash; //todo 改成判断垃圾数量
+
         //! 如果这个位置没有节点(Wrapper) - 意味着没有垃圾直接插入, 不需要处理垃圾桶逻辑
-        if ((p = tab[i = (n - 1) & testHash]) == null) {
+        if ((p = tab[i]) == null) {
             tab[i] = newNode(testHash, key, value, null);
             //维护链关系: 不需要
 
@@ -672,29 +664,65 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     final Wrapper<K, V> removeNode(int testHash, Object key) {
         Wrapper<K, V> p; //该桶位置的包装器头
         Wrapper<K, V> nodeWrapper;
-        int index; //本次试探的位置
+        int newIndex = -1; //反查索引
+        Wrapper<K, V> newP = null; //反查头包装器
 
         if (table == null || size == 0 || table.length == 0) { //合法性检查
             return null;
         }
-        if ((p = table[index = (table.length - 1) & testHash]) == null) { //这个桶位置没有节点
-            return null;
+        if ((p = table[(table.length - 1) & testHash]) == null) { //试探的这个桶位置没有节点
+            return null; //仅作为试探
         }
 
 
-        //查找节点 - 直接调用查询方法
+        //查找节点 - 调用查询方法, 需要反查
         nodeWrapper = getNode(key);
         if (nodeWrapper == null) { //没找到哦
             return null;
         }
+        // find newIndex
+        //use hash count
+        // find newP
+        // 反查具体的table桶位置和具体的位置定位头包装器
+        for (int i = 0; i < table.length; i++) {
+            p = table[i];
+            while (p != null) {
+                if (p == nodeWrapper) {
+                    newIndex = i;
+                    newP = table[newIndex];
+                    break;
+                }
+                if (p.getNode().next != null) {
+                    p = p.getNode().next.getWrapper();
+                } else {
 
-        if (nodeWrapper == p) { //如果是头节点
-            table[index] = nodeWrapper.getNode().next.getWrapper();
-        } else { //如果不是头节点, 使用前驱节点短路之
-            p.getNode().next = nodeWrapper.getNode().next;
+                }
+            }
+            if (newIndex != -1) {
+                break;
+            }
         }
 
-        --size;
+        if (newIndex == -1) { // 没有找到nodeWrapper
+            return null;
+        }
+
+        if (nodeWrapper == newP) { //如果是头节点
+            if (nodeWrapper.getNode().next != null) { //小心空指针
+                table[newIndex] = nodeWrapper.getNode().next.getWrapper();
+            } else {
+                table[newIndex] = null;
+            }
+        } else { //如果不是头节点, 使用前驱节点短路之
+            newP.getNode().next = nodeWrapper.getNode().next;
+        }
+
+        --size;//调整大小
+        //找到垃圾桶对应位置下标, 进行清除
+        if (trashTable[newIndex] > 0) {
+            trashTable[newIndex]--;
+        }
+
         return nodeWrapper;
     }
 
