@@ -271,11 +271,9 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         Wrapper<K, V>[] tab;
         if ((tab = table) != null && size > 0) {
             size = 0;
-            //需要对包装节点做处理
-            for (Wrapper<K, V> kvWrapper : tab) {
-                kvWrapper.setNode(null);
-                kvWrapper.setHashHelper(Constants.DEFAULT_HASH_HELPER_VALUE);
-            }
+            // 直接新建
+            @SuppressWarnings({"unchecked"}) Wrapper<K, V>[] newTab = (Wrapper<K, V>[]) new Wrapper[Constants.DEFAULT_INITIAL_CAPACITY];
+            table = newTab;
             int[] trash = trashTable;
             Arrays.fill(trash, 0);
         }
@@ -309,7 +307,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         int salt = Toolkit.hash(Constants.DEFAULT_HASH_HELPER_VALUE);
         //使用数组初始化为重试次数, 对每种情况进行探索
         for (int i = 1; i < maxRetry; i++) {
-            Wrapper<K, V> res = getRealNode(keyHash + salt + Constants.DEFAULT_HASH_HELPER_VALUE_GROW * i, key);
+            Wrapper<K, V> res = getRealNode(keyHash + salt + Constants.DEFAULT_HASH_HELPER_VALUE_GROW * (i - 1), key);
             if (res != null) {
                 return res;
             }
@@ -336,7 +334,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         for (int i = 1; i < maxRetry; i++) {
             int finalI = i;
             executor.execute(() -> {
-                res.add(getRealNode(rawHash + salt * Constants.DEFAULT_HASH_HELPER_VALUE_GROW * finalI, key));
+                res.add(getRealNode(rawHash + salt * Constants.DEFAULT_HASH_HELPER_VALUE_GROW * (finalI - 1), key));
                 countDownLatch.countDown();
             });
         }
@@ -449,7 +447,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             return null;
         }
         //改变hash重新试探
-        int newTestHash = Toolkit.hash(key) + Toolkit.hash(Constants.DEFAULT_HASH_HELPER_VALUE + Constants.DEFAULT_HASH_HELPER_VALUE_GROW * turn);
+        int newTestHash = Toolkit.hash(key) + Toolkit.hash(Constants.DEFAULT_HASH_HELPER_VALUE + Constants.DEFAULT_HASH_HELPER_VALUE_GROW * (turn - 1));
         return putValRetry(newTestHash, key, value, turn + 1, success);
     }
 
@@ -786,14 +784,15 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
 
     @Override
     public boolean containsValue(Object value) {
-        Wrapper<K, V>[] tab;
         V v;
-        if ((tab = table) == null || size <= 0) {
+        if (table == null || size <= 0) {
             return false;
         }
-
-        for (Wrapper<K, V> e : tab) {
+        for (Wrapper<K, V> e : table) {
             //对一个桶中的元素进行深入
+            if (e == null) {
+                continue;
+            }
             for (HamaNode<K, V> ek = e.getNode(); ek != null; ek = ek.next) {
                 if ((v = ek.value) == value || (value != null && value.equals(v))) {
                     return true;

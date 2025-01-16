@@ -40,7 +40,7 @@ class HamaFunctionalTest {
      * 测试Hamamap删除功能
      */
     @Test
-    void testBasicFunc_Delete() {
+    void testBasicFunc_Delete() { //todo 没反应了
         map.put("one", 1);
         map.put("two", 2);
         map.put("three", 3);
@@ -64,7 +64,7 @@ class HamaFunctionalTest {
 
         assertTrue(map.containsKey("one"));
         assertFalse(map.containsKey("four"));
-        assertTrue(map.containsValue(2));
+        assertTrue(map.containsValue(2)); //todo NPE
         assertFalse(map.containsValue(4));
     }
 
@@ -73,7 +73,7 @@ class HamaFunctionalTest {
      * 测试Hamamap修改功能
      */
     @Test
-    void testModifyFunc() {
+    void testModifyFunc() { //todo 没反应了
         map.put("one", 1);
         map.put("two", 2);
         map.put("three", 3);
@@ -110,7 +110,7 @@ class HamaFunctionalTest {
      * 测试Hamamap复合功能
      */
     @Test
-    void testComplexFunc() {
+    void testComplexFunc() { //todo mei
         map.put("one", 1);
         map.put("two", 2);
         map.put("three", 3);
