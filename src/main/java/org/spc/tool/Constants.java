@@ -66,6 +66,14 @@ public interface Constants {
      */
     int DEFAULT_CANSTANDED_TRASH_COUNT = 3;
 
+    /**
+     * Use thread or not (for query)
+     * <p>
+     * 是否使用多线程 (发起查询)
+     */
+    @Deprecated
+    boolean USE_THREAD = false;
+
 
     //! Original
     /**

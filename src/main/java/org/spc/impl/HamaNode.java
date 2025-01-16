@@ -20,8 +20,6 @@ public class HamaNode<K, V> implements IHamaEntryEx<K, V> {
      */
     final K key;
     /**
-     * The wrapper Link
-     * -- GETTER --
      * get the wrapper link
      * <p>
      * 获取包装器 link

@@ -23,6 +23,7 @@ public interface Toolkit {
      * <p>
      * 选择多个哈希位置的线程执行器
      */
+    @Deprecated
     ExecutorService CACHE_REBUILD_EXECUTOR = new ThreadPoolExecutor(
             Runtime.getRuntime().availableProcessors(),
             Runtime.getRuntime().availableProcessors() * 2,
@@ -63,6 +64,7 @@ public interface Toolkit {
      * <p>
      * 如果x匹配kc（k的筛选可比类），则返回k.compareTo(x)，否则返回0
      */
+    @Deprecated
     @SuppressWarnings({"rawtypes", "unchecked"})
     static int compareComparables(Class<?> kc, Object k, Object x) {
         return (x == null || x.getClass() != kc ? 0 :
@@ -74,6 +76,7 @@ public interface Toolkit {
      * <p>
      * 如果x的形式为“类C实现Comparable”，则返回x的类，否则返回null
      */
+    @Deprecated
     static Class<?> comparableClassFor(Object x) {
         if (!(x instanceof Comparable)) {
             return null;
