@@ -288,7 +288,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      * @note 只给出一个Key, 但是真正存放的时候, 可能存在下面几个可能的位置是真正存放的地方:
      * hash =[ {key} + {hashHelper} * {0~maxRetry}]; 因此要发起多次查询, 以便找到真正的位置
      */
-    final Wrapper<K, V> getNode(Object key) {
+    final Wrapper<K, V> getNode(Object key) { //todo FIXME: 插入了查不到
         int testKeyHash = Toolkit.hash(key);
         if (Constants.USE_THREAD) {
             return getNodeByHashThread(testKeyHash, key);
@@ -356,9 +356,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      */
     private Wrapper<K, V> getRealNode(int realHash, Object key) {
         Wrapper<K, V>[] tab;
-
         Wrapper<K, V> first;
-
         Wrapper<K, V> e;
         int n;
         K k;
@@ -371,13 +369,11 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             }
 
             //遍历桶中的链表
-            // todo  org.spc.tool.Wrapper.getNode().next" is null
-            if ((e = first.getNode().next.getWrapper()) != null) {
-                do {
-                    if (e.hashCode() == realHash && ((k = e.getNode().key) == key || (key != null && key.equals(k)))) {
-                        return e;
-                    }
-                } while ((e = e.getNode().next.getWrapper()) != null);
+            while (first.getNode().next != null && (e = first.getNode().next.getWrapper()) != null) { //小心空指针
+                if (e.hashCode() == realHash && ((k = e.getNode().key) == key || (key != null && key.equals(k)))) {
+                    return e;
+                }
+                first = e;
             }
         }
         return null;
@@ -463,7 +459,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      */
     private V putValbyHash(int realHash, Wrapper<K, V> p, K key, V value) {
 
-        Wrapper<K, V> e; //临时位置包装器
+        Wrapper<K, V> e = null; //临时位置包装器
         K k; //临时键
 
         if (p.hashCode() == realHash && ((k = p.getNode().key) == key || (key != null && key.equals(k)))) {
@@ -473,8 +469,8 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             //一旦进行了遍历, 就要处理垃圾桶关系
             for (; ; ) {
                 //如果下一个节点为空, 就直接插入
-                //todo  "org.spc.tool.Wrapper.getNode().next" is null
-                if ((e = p.getNode().next.getWrapper()) == null) {//如果下一个节点为空, 就直接插入
+
+                if (p.getNode().next == null || (e = p.getNode().next.getWrapper()) == null) {//如果下一个节点为空, 就直接插入
                     p.getNode().next = newNode(realHash, key, value, null).getNode(); //维护关系
                     break;
                 }
@@ -806,9 +802,13 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
             if (e == null) {
                 throw new NoSuchElementException();
             }
-            if ((next = (current = e).getNode().next.getWrapper()) == null && (t = table) != null) {
-                do {
-                } while (index < t.length && (next = t[index++]) == null);
+
+            if (e.getNode().next == null || (next = (current = e).getNode().next.getWrapper()) == null) {
+                if (table != null) {
+                    while (index < table.length && (next = table[index++]) == null) {
+                        // Continue to the next non-null entry
+                    }
+                }
             }
             return e;
         }
