@@ -232,7 +232,7 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     }
 
 
-    //! Functions 核心功能
+    //! Functions 核心功能API
 
 
     /**
@@ -262,25 +262,68 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
         return (e = removeNode(testHash, key)) == null ? null : e.getNode().getValue();
     }
 
+
     /**
-     * Clear
+     * Get
      * <p>
-     * 清空
-     *
-     * @note 图省事直接新建了
+     * K查询
      */
     @Override
-    @SuppressWarnings({"unchecked"})
-    public void clear() {
-        if (table == null || size == 0) {
-            return;
-        }
-
-        size = 0;
-        this.table = (Wrapper<K, V>[]) new Wrapper[Constants.DEFAULT_INITIAL_CAPACITY];
-        trashTable = new int[Constants.DEFAULT_INITIAL_CAPACITY];
+    public V get(Object key) {
+        Wrapper<K, V> e;
+        return (e = getNode(key)) == null ? null : e.getNode().getValue();
     }
 
+    /**
+     * have K
+     * <p>
+     * K查询
+     */
+    @Override
+    public boolean containsKey(Object key) {
+        return getNode(key) != null;
+    }
+
+    /**
+     * have V
+     * <p>
+     * V查询
+     */
+    @Override
+    public boolean containsValue(Object value) {
+        V v;
+        if (table == null || size <= 0) {
+            return false;
+        }
+        for (Wrapper<K, V> e : table) {
+            if (e == null) {
+                continue;
+            }
+            for (HamaNode<K, V> ek = e.getNode(); ek != null; ek = ek.next) {//对一个桶中的元素进行深入
+                if ((v = ek.value) == value || (value != null && value.equals(v))) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+
+    /**
+     * get or default
+     * <p>
+     * 查询, 没有就默认
+     */
+    @Override
+    public V getOrDefault(Object key, V defaultValue) {
+        Wrapper<K, V> e;
+
+        return (e = getNode(key)) == null ? defaultValue : e.getNode().value;
+    }
+
+
+    //! FunctionImpls 核心功能API实现
 
     /**
      * get a node by key
@@ -614,18 +657,6 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
 
 
     /**
-     * Create a regular (non-tree) node
-     * <p>
-     * 创建一个常规（非树）节点
-     *
-     * @note hash已经被提升到了包装类中, 节点的hash尽量不要用
-     */
-    Wrapper<K, V> newNode(int hash, K key, V value, HamaNode<K, V> next) {
-        return new Wrapper<>(new HamaNode<>(key, value, next), hash - Toolkit.hash(key));
-    }
-
-
-    /**
      * Implements Map.putAll and Map constructor
      * <p>
      * 实现Map.putAll和Map构造函数
@@ -824,6 +855,42 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     //! Side Functions 辅助功能
 
     @Override
+    public int size() {
+        return size;
+    }
+
+
+    @Override
+    public boolean isEmpty() {
+        return size == 0;
+    }
+
+    /**
+     * Clear
+     * <p>
+     * 清空
+     *
+     * @note 图省事直接新建了
+     */
+    @Override
+    @SuppressWarnings({"unchecked"})
+    public void clear() {
+        if (table == null || size == 0) {
+            return;
+        }
+
+        size = 0;
+        this.table = (Wrapper<K, V>[]) new Wrapper[Constants.DEFAULT_INITIAL_CAPACITY];
+        trashTable = new int[Constants.DEFAULT_INITIAL_CAPACITY];
+    }
+
+
+    /**
+     * KV view
+     * <p>
+     * 键值对视图
+     */
+    @Override
     public Set<IHamaEntryEx<K, V>> entrySet() {
         Set<IHamaEntryEx<K, V>> es;
         return (es = entrySet) == null ? (entrySet = new AbstractSet<>() {
@@ -856,59 +923,19 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
     }
 
 
-    @Override
-    public int size() {
-        return size;
+    /**
+     * Create a regular (non-tree) node
+     * <p>
+     * 创建一个常规（非树）节点
+     *
+     * @note hash已经被提升到了包装类中, 节点的hash尽量不要用
+     */
+    Wrapper<K, V> newNode(int hash, K key, V value, HamaNode<K, V> next) {
+        return new Wrapper<>(new HamaNode<>(key, value, next), hash - Toolkit.hash(key));
     }
 
 
-    @Override
-    public boolean isEmpty() {
-        return size == 0;
-    }
-
-    @Override
-    public V get(Object key) {
-        Wrapper<K, V> e;
-        return (e = getNode(key)) == null ? null : e.getNode().getValue();
-    }
-
-    @Override
-    public boolean containsKey(Object key) {
-        return getNode(key) != null;
-    }
-
-    @Override
-    public boolean containsValue(Object value) {
-        V v;
-        if (table == null || size <= 0) {
-            return false;
-        }
-        for (Wrapper<K, V> e : table) {
-            //对一个桶中的元素进行深入
-            if (e == null) {
-                continue;
-            }
-            for (HamaNode<K, V> ek = e.getNode(); ek != null; ek = ek.next) {
-                if ((v = ek.value) == value || (value != null && value.equals(v))) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-
-    @Override
-    public V getOrDefault(Object key, V defaultValue) {
-        Wrapper<K, V> e;
-
-        return (e = getNode(key)) == null ? defaultValue : e.getNode().value;
-    }
-
-
-//! 迭代器 内部类
+    //! 迭代器 内部类
 
     abstract class HamaIterator {
         Wrapper<K, V> next;        // next entry to return 下一个要返回的条目

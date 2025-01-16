@@ -95,8 +95,7 @@ class HamaFunctionalTest {
         map.put("two", 2);
         map.put("three", 3);
 
-        @SuppressWarnings("unchecked")
-        Hamamap<String, Integer> copy = (Hamamap<String, Integer>) map.clone();
+        @SuppressWarnings("unchecked") Hamamap<String, Integer> copy = (Hamamap<String, Integer>) map.clone();
         assertEquals(3, copy.size());
         assertEquals(1, copy.get("one"));
         assertEquals(2, copy.get("two"));
@@ -126,9 +125,6 @@ class HamaFunctionalTest {
         assertEquals(4, map.size());
     }
 
-
-    //! 以下是一些多重功能的测试用例
-
     /**
      * 测试Hamamap多重功能
      */
@@ -147,4 +143,42 @@ class HamaFunctionalTest {
         assertFalse(map.containsKey("one"));
         assertFalse(map.containsValue(2));
     }
+
+
+    /**
+     * 终极测试
+     */
+    @Test
+    void testComplexHashMapOperations() {
+        // 插入400个数字
+        for (int i = 1; i <= 400; i++) {
+            map.put("key" + i, i);
+        }
+        assertEquals(400, map.size());
+
+        // 删除其中的50个
+        for (int i = 1; i <= 50; i++) {
+            map.remove("key" + i);
+        }
+        assertEquals(350, map.size());
+
+        // 再插入1000个
+        for (int i = 401; i <= 1400; i++) {
+            map.put("key" + i, i);
+        }
+        assertEquals(1350, map.size());
+
+        // 再查询250次
+        for (int i = 1; i <= 250; i++) {
+            int keyIndex = (i % 1400) + 1;
+            Integer value = map.get("key" + keyIndex);
+            if (keyIndex <= 50) {
+                assertNull(value);
+            } else {
+                assertNotNull(value);
+            }
+        }
+    }
+
+
 }

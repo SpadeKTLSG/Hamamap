@@ -65,9 +65,12 @@ public class Wrapper<K, V> {
         return Objects.equals(node, wrapper.node);
     }
 
+    /**
+     * hashHelper参与hash计算, 必须用自己的Hash计算方法
+     */
     @Override
     public int hashCode() {
-        //hashHelper参与hash计算, 必须用自己的Hash计算方法
+
         return Toolkit.hash(node.getKey()) + Toolkit.hash(hashHelper);
     }
 
