@@ -42,7 +42,17 @@ mvn clean package
 
 因此比较适合胜任缓存的工作, 但是不适合那种需要快速插入的场景.
 
-## 感言 What I want to say
+## 对比 Compare
+
+性能方面还是输了, 没让HashMap大人尽兴真是抱歉呐
+
+```text
+Hamamap insert time is 1.71 times of HashMap
+Hamamap delete time is 1.53 times of HashMap
+Hamamap query time is 1.55 times of HashMap
+```
+
+## 感言 What can I say?
 
 I said, I did, I won. 我承诺过, 我做了, 我胜利.
 
