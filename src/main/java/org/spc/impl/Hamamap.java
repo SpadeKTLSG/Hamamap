@@ -614,7 +614,12 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
 
                 //遍历这个桶中的节点
                 do {
-                    next = e.getNode().next.getWrapper();
+                    //空指针:
+                    if (e.getNode().next != null) {
+                        next = e.getNode().next.getWrapper();
+                    } else {
+                        next = null;
+                    }
                     if ((e.hashCode() & oldCap) == 0) { //如果hash值不变, 就插入到原来的位置
                         if (loTail == null) {
                             loHead = e;
@@ -693,7 +698,8 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
                 if (p.getNode().next != null) {
                     p = p.getNode().next.getWrapper();
                 } else {
-
+                    //到头了, break
+                    break;
                 }
             }
             if (newIndex != -1) {

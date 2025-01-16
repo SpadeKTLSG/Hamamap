@@ -64,7 +64,7 @@ class HamaFunctionalTest {
 
         assertTrue(map.containsKey("one"));
         assertFalse(map.containsKey("four"));
-        assertTrue(map.containsValue(2)); //todo NPE
+        assertTrue(map.containsValue(2));
         assertFalse(map.containsValue(4));
     }
 
