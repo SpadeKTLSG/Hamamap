@@ -40,7 +40,7 @@ class HamaFunctionalTest {
      * 测试Hamamap删除功能
      */
     @Test
-    void testBasicFunc_Delete() {
+    void testBasicFunc_Delete() { //todo 没反应了
         map.put("one", 1);
         map.put("two", 2);
         map.put("three", 3);
@@ -73,7 +73,7 @@ class HamaFunctionalTest {
      * 测试Hamamap修改功能
      */
     @Test
-    void testModifyFunc() {
+    void testModifyFunc() { //todo 没反应了
         map.put("one", 1);
         map.put("two", 2);
         map.put("three", 3);
@@ -95,8 +95,7 @@ class HamaFunctionalTest {
         map.put("two", 2);
         map.put("three", 3);
 
-        @SuppressWarnings("unchecked")
-        Hamamap<String, Integer> copy = (Hamamap<String, Integer>) map.clone();
+        @SuppressWarnings("unchecked") Hamamap<String, Integer> copy = (Hamamap<String, Integer>) map.clone();
         assertEquals(3, copy.size());
         assertEquals(1, copy.get("one"));
         assertEquals(2, copy.get("two"));
@@ -116,7 +115,7 @@ class HamaFunctionalTest {
         map.put("three", 3);
         map.put("four", 4);
         map.put("five", 5);
-
+        System.out.println(map.entrySet());
         assertEquals(5, map.size());
         assertTrue(map.containsKey("three"));
         assertTrue(map.containsValue(4));
@@ -125,9 +124,6 @@ class HamaFunctionalTest {
         assertFalse(map.containsKey("four"));
         assertEquals(4, map.size());
     }
-
-
-    //! 以下是一些多重功能的测试用例
 
     /**
      * 测试Hamamap多重功能
@@ -147,4 +143,42 @@ class HamaFunctionalTest {
         assertFalse(map.containsKey("one"));
         assertFalse(map.containsValue(2));
     }
+
+
+    /**
+     * 终极测试
+     */
+    @Test
+    void testComplexHashMapOperations() {
+        // 插入400个数字
+        for (int i = 1; i <= 400; i++) {
+            map.put("key" + i, i);
+        }
+        assertEquals(400, map.size());
+
+        // 删除其中的50个
+        for (int i = 1; i <= 50; i++) {
+            map.remove("key" + i);
+        }
+        assertEquals(350, map.size());
+
+        // 再插入1000个
+        for (int i = 401; i <= 1400; i++) {
+            map.put("key" + i, i);
+        }
+        assertEquals(1350, map.size());
+
+        // 再查询250次
+        for (int i = 1; i <= 250; i++) {
+            int keyIndex = (i % 1400) + 1;
+            Integer value = map.get("key" + keyIndex);
+            if (keyIndex <= 50) {
+                assertNull(value);
+            } else {
+                assertNotNull(value);
+            }
+        }
+    }
+
+
 }

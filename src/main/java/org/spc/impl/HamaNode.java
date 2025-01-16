@@ -1,6 +1,8 @@
 package org.spc.impl;
 
+import lombok.Getter;
 import org.spc.api.IHamaEntryEx;
+import org.spc.wrapper.Wrapper;
 
 import java.util.Objects;
 
@@ -8,17 +10,22 @@ import java.util.Objects;
  * HamaNode
  * <p>
  * Hamamap的简单节点
+ *
+ * @note Hash计算被节点包装代理
  */
 public class HamaNode<K, V> implements IHamaEntryEx<K, V> {
 
     /**
-     * The hash
-     */
-    final int hash;
-    /**
      * The key
      */
     final K key;
+    /**
+     * get the wrapper link
+     * <p>
+     * 获取包装器 link
+     */
+    @Getter
+    Wrapper<K, V> wrapper;
     /**
      * The value
      */
@@ -28,8 +35,7 @@ public class HamaNode<K, V> implements IHamaEntryEx<K, V> {
      */
     HamaNode<K, V> next;
 
-    public HamaNode(int hash, K key, V value, HamaNode<K, V> next) {
-        this.hash = hash;
+    public HamaNode(K key, V value, HamaNode<K, V> next) {
         this.key = key;
         this.value = value;
         this.next = next;
@@ -64,5 +70,13 @@ public class HamaNode<K, V> implements IHamaEntryEx<K, V> {
         return o instanceof IHamaEntryEx<?, ?> e && Objects.equals(key, e.getKey()) && Objects.equals(value, e.getValue());
     }
 
+    /**
+     * set the wrapper link
+     * <p>
+     * 设置包装器 link
+     */
+    public void setWrapper(Wrapper<K, V> wrapper) {
+        this.wrapper = wrapper;
+    }
 
 }

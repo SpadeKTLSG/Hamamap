@@ -1,19 +1,41 @@
 package org.spc.tool;
 
+import org.spc.impl.HamaNode;
+import org.spc.wrapper.Wrapper;
+
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Toolkit
  * <p>
  * 工具箱
  */
+@SuppressWarnings({"rawtypes", "unchecked"})
 public interface Toolkit {
+
+    /**
+     * Executor for selecting multiple hash positions
+     * <p>
+     * 选择多个哈希位置的线程执行器
+     */
+    @Deprecated
+    ExecutorService CACHE_REBUILD_EXECUTOR = new ThreadPoolExecutor(
+            Runtime.getRuntime().availableProcessors(),
+            Runtime.getRuntime().availableProcessors() * 2,
+            Constants.THREAD_KEEPALIVE_TIME,
+            TimeUnit.SECONDS,
+            new LinkedBlockingQueue<>(Constants.MAX_THREAD_QUEUE_SIZE)) {
+    };
 
     /**
      * Hash Tool for hamamap
      * <p>
-     * Hamamap的哈希工具
+     * Hamamap的哈希工具, 必须结合使用包装器方法
      */
     static int hash(Object key) {
         int h;
@@ -42,6 +64,7 @@ public interface Toolkit {
      * <p>
      * 如果x匹配kc（k的筛选可比类），则返回k.compareTo(x)，否则返回0
      */
+    @Deprecated
     @SuppressWarnings({"rawtypes", "unchecked"})
     static int compareComparables(Class<?> kc, Object k, Object x) {
         return (x == null || x.getClass() != kc ? 0 :
@@ -53,6 +76,7 @@ public interface Toolkit {
      * <p>
      * 如果x的形式为“类C实现Comparable”，则返回x的类，否则返回null
      */
+    @Deprecated
     static Class<?> comparableClassFor(Object x) {
         if (!(x instanceof Comparable)) {
             return null;
@@ -70,5 +94,41 @@ public interface Toolkit {
                 return c;
         }
         return null;
+    }
+
+    /**
+     * get Wrapped Node
+     * <p>
+     * 获取包装的节点
+     */
+    static HamaNode openNode(Wrapper wrapper) {
+        return wrapper.getNode();
+    }
+
+    /**
+     * set Wrapped Node
+     * <p>
+     * 设置包装的节点
+     */
+    static void setNode(Wrapper wrapper, HamaNode node) {
+        wrapper.setNode(node);
+    }
+
+    /**
+     * Type check
+     * <p>
+     * 类型检查
+     */
+    static boolean isWrapper(Object obj) {
+        return obj instanceof Wrapper;
+    }
+
+    /**
+     * Type check
+     * <p>
+     * 类型检查
+     */
+    static boolean isNode(Object obj) {
+        return obj instanceof HamaNode;
     }
 }

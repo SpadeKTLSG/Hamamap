@@ -11,6 +11,7 @@ import java.util.HashMap;
  */
 public class HamaPerformanceTest {
 
+    Long times = 1000L;
     private Hamamap<String, Integer> map;
     private HashMap<String, Integer> jmap;
 
@@ -18,6 +19,7 @@ public class HamaPerformanceTest {
     void setUp() {
         map = new Hamamap<>();
         jmap = new HashMap<>();
+        times = 10000000L;
     }
 
     /**
@@ -26,7 +28,7 @@ public class HamaPerformanceTest {
     @Test
     void testInsertPerformance() {
         long startTime = System.nanoTime();
-        for (int i = 0; i < 100000; i++) {
+        for (int i = 0; i < times; i++) {
             map.put("key" + i, i);
         }
         long endTime = System.nanoTime();
@@ -34,7 +36,7 @@ public class HamaPerformanceTest {
         long hmapInsertTime = endTime - startTime;
 
         startTime = System.nanoTime();
-        for (int i = 0; i < 100000; i++) {
+        for (int i = 0; i < times; i++) {
             jmap.put("key" + i, i);
         }
         endTime = System.nanoTime();
@@ -50,13 +52,13 @@ public class HamaPerformanceTest {
      */
     @Test
     void testQueryPerformance() {
-        for (int i = 0; i < 100000; i++) {
+        for (int i = 0; i < times; i++) {
             map.put("key" + i, i);
             jmap.put("key" + i, i);
         }
 
         long startTime = System.nanoTime();
-        for (int i = 0; i < 100000; i++) {
+        for (int i = 0; i < times; i++) {
             map.get("key" + i);
         }
         long endTime = System.nanoTime();
@@ -64,7 +66,7 @@ public class HamaPerformanceTest {
         long hmapQueryTime = endTime - startTime;
 
         startTime = System.nanoTime();
-        for (int i = 0; i < 100000; i++) {
+        for (int i = 0; i < times; i++) {
             jmap.get("key" + i);
         }
         endTime = System.nanoTime();
@@ -75,18 +77,50 @@ public class HamaPerformanceTest {
         System.out.println("Hamamap query time is " + (double) hmapQueryTime / jmapQueryTime + " times of HashMap");
     }
 
+
+    /**
+     * 测试Hamamap异常插入的查询性能
+     */
+    @Test
+    void testQueryBadPerformance() {
+        for (int i = 0; i < times; i++) {
+            map.put("key" + 114, 514);
+            jmap.put("key" + 114, 514);
+        }
+
+        long startTime = System.nanoTime();
+        for (int i = 0; i < times; i++) {
+            map.get("key" + i);
+        }
+        long endTime = System.nanoTime();
+        System.out.println("Hamamap query time: " + (endTime - startTime) + " ns");
+        long hmapQueryTime = endTime - startTime;
+
+        startTime = System.nanoTime();
+        for (int i = 0; i < times; i++) {
+            jmap.get("key" + i);
+        }
+        endTime = System.nanoTime();
+        System.out.println("HashMap query time: " + (endTime - startTime) + " ns");
+        long jmapQueryTime = endTime - startTime;
+
+        //计算两者差距的百分比: Hamamap的耗时是HashMap的多少倍:
+        System.out.println("Hamamap query time is " + (double) hmapQueryTime / jmapQueryTime + " times of HashMap");
+    }
+
+
     /**
      * 测试Hamamap删除性能
      */
     @Test
     void testDeletePerformance() {
-        for (int i = 0; i < 100000; i++) {
+        for (int i = 0; i < times; i++) {
             map.put("key" + i, i);
             jmap.put("key" + i, i);
         }
 
         long startTime = System.nanoTime();
-        for (int i = 0; i < 100000; i++) {
+        for (int i = 0; i < times; i++) {
             map.remove("key" + i);
         }
         long endTime = System.nanoTime();
@@ -94,7 +128,7 @@ public class HamaPerformanceTest {
         long hmapDeleteTime = endTime - startTime;
 
         startTime = System.nanoTime();
-        for (int i = 0; i < 100000; i++) {
+        for (int i = 0; i < times; i++) {
             jmap.remove("key" + i);
         }
         endTime = System.nanoTime();
@@ -103,5 +137,31 @@ public class HamaPerformanceTest {
 
         //计算两者差距的百分比: Hamamap的耗时是HashMap的多少倍:
         System.out.println("Hamamap delete time is " + (double) hmapDeleteTime / jmapDeleteTime + " times of HashMap");
+    }
+
+
+    /**
+     * 测试Hamamap异常插入性能: 只插入特定的key
+     */
+    @Test
+    void testBadInsertPerformance() {
+        long startTime = System.nanoTime();
+        for (int i = 0; i < 10000000L; i++) {
+            map.put("key" + 114, 514);
+        }
+        long endTime = System.nanoTime();
+        System.out.println("Hamamap insert time: " + (endTime - startTime) + " ns");
+        long hmapInsertTime = endTime - startTime;
+
+        startTime = System.nanoTime();
+        for (int i = 0; i < 10000000L; i++) {
+            jmap.put("key" + 114, 514);
+        }
+        endTime = System.nanoTime();
+        System.out.println("HashMap insert time: " + (endTime - startTime) + " ns");
+        long jmapInsertTime = endTime - startTime;
+
+        //计算两者差距的百分比: Hamamap的耗时是HashMap的多少倍:
+        System.out.println("Hamamap insert time is " + (double) hmapInsertTime / jmapInsertTime + " times of HashMap");
     }
 }

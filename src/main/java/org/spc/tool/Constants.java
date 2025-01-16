@@ -13,16 +13,17 @@ public interface Constants {
     /**
      * Default initial retry
      * <p>
-     * 默认初始插入重试次数 = 2
+     * 默认初始插入重试次数 = 1
      */
-    int DEFAULT_INITIAL_RETRY = 2;
+    @Deprecated
+    int DEFAULT_INITIAL_RETRY = 1;
 
     /**
      * Default max retry
      * <p>
-     * 默认最大重试次数 = 4
+     * 默认最大重试次数 = 3
      */
-    int DEFAULT_MAX_RETRY = 4;
+    int DEFAULT_MAX_RETRY = 3;
 
     /**
      * Default max trash (in bucket)
@@ -30,6 +31,48 @@ public interface Constants {
      * (桶内)默认最大垃圾数量 = 16
      */
     int DEFAULT_MAX_TRASH = 1 << 4; // aka 16
+    /**
+     * Default hash helper field value
+     * <p>
+     * 默认哈希辅助值
+     */
+    int DEFAULT_HASH_HELPER_VALUE = 1;
+
+    /**
+     * Default hash helper field value grow
+     * <p>
+     * 默认哈希辅助值增长
+     */
+    int DEFAULT_HASH_HELPER_VALUE_GROW = 8;
+
+    /**
+     * The maximum length of queue in thread pool
+     * <p>
+     * 线程池队列最大长度
+     */
+    int MAX_THREAD_QUEUE_SIZE = 2048;
+
+    /**
+     * The alive time of thread pool's thread
+     * <p>
+     * 线程池线程生存时间
+     */
+    int THREAD_KEEPALIVE_TIME = 1;
+
+    /**
+     * (in one table[?]) can stand trash count
+     * <p>
+     * (一个table桶里面) 可以容忍的垃圾数量
+     */
+    int DEFAULT_CANSTANDED_TRASH_COUNT = 3;
+
+    /**
+     * Use thread or not (for query)
+     * <p>
+     * 是否使用多线程 (发起查询)
+     */
+    @Deprecated
+    boolean USE_THREAD = false;
 
 
     //! Original
@@ -59,33 +102,5 @@ public interface Constants {
      */
     float DEFAULT_LOAD_FACTOR = 0.75f; // aka ((75%)=> resize)
 
-
-    /**
-     * The bin count threshold for using a tree rather than list
-     * <p>
-     * 链树化的阈值
-     */
-    int TREEIFY_THRESHOLD = 8;
-
-
-    /**
-     * The bin count threshold for untreeifying a (split) bin during a
-     * resize operation. Should be less than TREEIFY_THRESHOLD, and at
-     * most 6 to mesh with shrinkage detection under removal.
-     * <p>
-     * 在调整大小操作期间取消树化（拆分）的阈值
-     * 应小于TREEIFY_THRESHOLD，最多为6，以便与删除时的缩小检测相匹配
-     */
-    int UNTREEIFY_THRESHOLD = 6;
-
-
-    /**
-     * The smallest table capacity for which bins may be treeified.
-     * Should be at least (4 - 8) * TREEIFY_THRESHOLD to avoid conflicts
-     * <p>
-     * 可以将链转换为树的最小表容量
-     * 应至少为(4 - 8) * TREEIFY_THRESHOLD以避免冲突, 取8
-     */
-    int MIN_TREEIFY_CAPACITY = 8 * TREEIFY_THRESHOLD; //aka 64
 
 }
