@@ -331,7 +331,6 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      *
      * @note 只给出一个Key, 但是真正存放的时候, 可能存在下面几个可能的位置是真正存放的地方:
      * hash =[ {key} + {hashHelper} * {0~maxRetry}]; 因此要发起多次查询, 以便找到真正的位置
-     * {保留了getNodeByHashThread 多线程方法(不稳定)}
      */
     final Wrapper<K, V> getNode(Object key) {
         int testKeyHash = Toolkit.hash(key);
@@ -345,7 +344,6 @@ public class Hamamap<K, V> extends AbstractHamamap<K, V> implements IHamamap<K, 
      *
      * @note 只给出一个Key, 但是真正存放的时候, 可能存在下面几个可能的位置是真正存放的地方:
      * hash =[ {key} + {hashHelper} * {0~maxRetry}]; 因此要发起多次查询, 以便找到真正的位置
-     * {保留了getNodeByHashThread 多线程方法(不稳定)}
      */
     final AllLocate<K, V> getNodeAll(Object key) {
         int testKeyHash = Toolkit.hash(key);
