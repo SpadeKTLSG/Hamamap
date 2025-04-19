@@ -60,13 +60,13 @@ So it's good for caching, but not for the kind of scenario that requires fast in
 
 ## 对比 Compare
 
-性能方面还是输了, 没让HashMap大人尽兴真是抱歉呐
-
 ```text
 Hamamap insert time is 1.71 times of HashMap
 Hamamap delete time is 1.53 times of HashMap
 Hamamap query time is 1.55 times of HashMap
 ```
+
+跑测试用例. 平均情况下在 100万量级的时候能够对 DDOS 插入同个值之后进行查询的这种特攻场景, 小蛤蟆取得对 HashMap 的 5% 的提升, 但是在正常情况下, 性能上还是输了, 没让HashMap大人尽兴真是抱歉呐
 
 ## 感言 What can I say?
 
