@@ -11,7 +11,7 @@ import java.util.HashMap;
  */
 public class HamaPerformanceTest {
 
-    Long times = 1000L;
+    Long times;
     private Hamamap<String, Integer> map;
     private HashMap<String, Integer> jmap;
 
@@ -73,7 +73,7 @@ public class HamaPerformanceTest {
         System.out.println("HashMap query time: " + (endTime - startTime) + " ns");
         long jmapQueryTime = endTime - startTime;
 
-        //计算两者差距的百分比: Hamamap的耗时是HashMap的多���倍:
+        //计算两者差距的百分比: Hamamap的耗时是HashMap的多少倍:
         System.out.println("Hamamap query time is " + (double) hmapQueryTime / jmapQueryTime + " times of HashMap");
     }
 
