@@ -53,7 +53,8 @@ In fact, I know, this has been basically a failure, performance disadvantage has
 
 After a discussion with some Master ZQ, in fact, the main improvement in performance, Query; add may not improve too much, after all, there are expansion operations.
 
-The main meaning of this rewrite is space for time, to ensure that each node can actually insert the string length is shorter, and even do not need a red-black tree, greatly optimizing the performance of the query. This makes it ideal for frequent queries where inserts don't require quick results.
+The main meaning of this rewrite is space for time, to ensure that each node can actually insert the string length is shorter, and even do not need a red-black tree, greatly
+optimizing the performance of the query. This makes it ideal for frequent queries where inserts don't require quick results.
 
 So it's good for caching, but not for the kind of scenario that requires fast insertion.
 
@@ -72,3 +73,7 @@ Hamamap query time is 1.55 times of HashMap
 I said, I did, I won. 我承诺过, 我做了, 我胜利.
 
 2025/01/16 完结, 一场酣畅淋漓的试炼
+
+## 我回来了孩子们 I am back, kids
+
+哥们的 future = 毕业 && 失业 了, 但是这个项目我不会打算放弃, 已经看到了突破口了会继续做下去的
